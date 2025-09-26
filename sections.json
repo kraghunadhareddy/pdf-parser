@@ -1,0 +1,32 @@
+[
+    {
+        "section_name": "Please check those which you have or have had",
+        "labels": ["None/ NA", "Arthritis", "Blood Disorder", "Cancer",
+                    "Diabetes", "ENT Problems", "Gastrointestinal", "Urinary/Prostat", 
+                    "Heart Disease", "High Blood Pressure", "High Cholesterol", "Kidney Problems",
+                    "Liver Problems", "Lung Problems", "Musculoskeletal", "Stroke",
+                    "Seizure", "Psychiatric", "Skin Disease", "Thyroid",
+                    "Sleep Apnea"]
+    },
+    {
+        "section_name": "Current Medications",
+        "labels": ["none", "ADD", "Antidepressant", "Antacid", 
+                    "Blood Pressure", "Diabetic", "NSAID", "Statin",
+                    "Steroid", "Thyroid"]
+    },
+    {
+        "section_name": "Please list all current supplements you are taking and the dosage",
+        "labels": ["Fiber", "MultiVitamin", "Calcium", "Fish Oil", 
+                    "Hair/Skin/Nail", "Hormone", "lron", "Joint",
+                    "Sleep", "Sport", "Vitamin D", "Weight Loss",
+                    "None"]
+    },
+    {
+        "section_name": "Tobacco",
+        "labels": ["Yes", "No"]
+    },
+    {
+        "section_name": "Alcohol",
+        "labels": ["Yes", "No"]
+    }
+]

@@ -1,0 +1,643 @@
+{
+    "pages": [
+        {
+            "page_number": 1,
+            "sections": [
+                {
+                    "section": "Please check those which you have or have had",
+                    "checkboxes": [
+                        {
+                            "label": "None/ NA",
+                            "status": "ticked",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                183,
+                                2932,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Arthritis",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                2933,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Blood Disorder",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                2933,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Cancer",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                2933,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Diabetes",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                182,
+                                2993,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "ENT Problems",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                2993,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Gastrointestinal",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                2993,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Urinary/Prostat",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                2993,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Heart Disease",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                182,
+                                3053,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "High Blood Pressure",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                3053,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "High Cholesterol",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                3053,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Kidney Problems",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                3053,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Liver Problems",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                182,
+                                3113,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Lung Problems",
+                            "status": "empty",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                720,
+                                3113,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Musculoskeletal",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                3113,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Stroke",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                3113,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Seizure",
+                            "status": "empty",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                182,
+                                3173,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Psychiatric",
+                            "status": "empty",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                720,
+                                3173,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Skin Disease",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                3173,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Thyroid",
+                            "status": "empty",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                1794,
+                                3173,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Sleep Apnea",
+                            "status": "empty",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                182,
+                                3233,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "page_number": 2,
+            "sections": []
+        },
+        {
+            "page_number": 3,
+            "sections": [
+                {
+                    "section": "Current Medications",
+                    "checkboxes": [
+                        {
+                            "label": "none",
+                            "status": "ticked",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                183,
+                                1971,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "ADD",
+                            "status": "empty",
+                            "score": 0.89,
+                            "confidence": 0.89,
+                            "position": [
+                                720,
+                                1971,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Antidepressant",
+                            "status": "empty",
+                            "score": 0.88,
+                            "confidence": 0.88,
+                            "position": [
+                                1256,
+                                1971,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Antacid",
+                            "status": "empty",
+                            "score": 0.84,
+                            "confidence": 0.84,
+                            "position": [
+                                1794,
+                                1971,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Blood Pressure",
+                            "status": "empty",
+                            "score": 0.86,
+                            "confidence": 0.86,
+                            "position": [
+                                182,
+                                2031,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Diabetic",
+                            "status": "empty",
+                            "score": 0.89,
+                            "confidence": 0.89,
+                            "position": [
+                                720,
+                                2031,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "NSAID",
+                            "status": "empty",
+                            "score": 0.88,
+                            "confidence": 0.88,
+                            "position": [
+                                1256,
+                                2031,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Statin",
+                            "status": "empty",
+                            "score": 0.83,
+                            "confidence": 0.83,
+                            "position": [
+                                1794,
+                                2031,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Steroid",
+                            "status": "empty",
+                            "score": 0.88,
+                            "confidence": 0.88,
+                            "position": [
+                                182,
+                                2092,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Thyroid",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                720,
+                                2092,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "Please list all current supplements you are taking and the dosage",
+                    "checkboxes": [
+                        {
+                            "label": "Fiber",
+                            "status": "ticked",
+                            "score": 0.94,
+                            "confidence": 0.94,
+                            "position": [
+                                183,
+                                2241,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "MultiVitamin",
+                            "status": "ticked",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                721,
+                                2241,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Calcium",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                2242,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Fish Oil",
+                            "status": "empty",
+                            "score": 0.92,
+                            "confidence": 0.92,
+                            "position": [
+                                1794,
+                                2242,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Hair/Skin/Nail",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                182,
+                                2302,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Hormone",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                720,
+                                2302,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "lron",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                1256,
+                                2302,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Joint",
+                            "status": "empty",
+                            "score": 0.91,
+                            "confidence": 0.91,
+                            "position": [
+                                1794,
+                                2302,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Sleep",
+                            "status": "empty",
+                            "score": 0.94,
+                            "confidence": 0.94,
+                            "position": [
+                                182,
+                                2362,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Sport",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                720,
+                                2362,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Vitamin D",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                1256,
+                                2362,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Weight Loss",
+                            "status": "empty",
+                            "score": 0.91,
+                            "confidence": 0.91,
+                            "position": [
+                                1794,
+                                2362,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "None",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                182,
+                                2422,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "Tobacco",
+                    "checkboxes": [
+                        {
+                            "label": "Yes",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                720,
+                                545,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "No",
+                            "status": "ticked",
+                            "score": 0.91,
+                            "confidence": 0.91,
+                            "position": [
+                                183,
+                                545,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "Alcohol",
+                    "checkboxes": [
+                        {
+                            "label": "Yes",
+                            "status": "ticked",
+                            "score": 0.94,
+                            "confidence": 0.94,
+                            "position": [
+                                183,
+                                825,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "No",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                720,
+                                825,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "page_number": 4,
+            "sections": []
+        },
+        {
+            "page_number": 5,
+            "sections": []
+        },
+        {
+            "page_number": 6,
+            "sections": []
+        },
+        {
+            "page_number": 7,
+            "sections": []
+        },
+        {
+            "page_number": 8,
+            "sections": []
+        },
+        {
+            "page_number": 9,
+            "sections": []
+        }
+    ]
+}

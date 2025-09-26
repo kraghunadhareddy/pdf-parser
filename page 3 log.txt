@@ -1,0 +1,256 @@
+Processing page 3
+[CHECKBOX POSITIONS]
+  Checkbox 0: {'position': [183, 545, 37, 37], 'score': 0.91, 'label': 'ticked', 'status': 'ticked', 'confidence': 0.91}, type=<class 'dict'>
+  Checkbox 1: {'position': [720, 545, 37, 37], 'score': 0.96, 'label': 'empty', 'status': 'empty', 'confidence': 0.96}, type=<class 'dict'>
+  Checkbox 2: {'position': [183, 825, 37, 37], 'score': 0.94, 'label': 'ticked', 'status': 'ticked', 'confidence': 0.94}, type=<class 'dict'>
+  Checkbox 3: {'position': [720, 825, 37, 37], 'score': 0.9, 'label': 'empty', 'status': 'empty', 'confidence': 0.9}, type=<class 'dict'>
+  Checkbox 4: {'position': [183, 1105, 37, 37], 'score': 0.94, 'label': 'ticked', 'status': 'ticked', 'confidence': 0.94}, type=<class 'dict'>
+  Checkbox 5: {'position': [720, 1106, 37, 37], 'score': 0.98, 'label': 'empty', 'status': 'empty', 'confidence': 0.98}, type=<class 'dict'>
+  Checkbox 6: {'position': [183, 1385, 37, 37], 'score': 0.92, 'label': 'ticked', 'status': 'ticked', 'confidence': 0.92}, type=<class 'dict'>
+  Checkbox 7: {'position': [720, 1386, 37, 37], 'score': 0.98, 'label': 'empty', 'status': 'empty', 'confidence': 0.98}, type=<class 'dict'>
+  Checkbox 8: {'position': [905, 1483, 37, 37], 'score': 0.83, 'label': 'empty', 'status': 'empty', 'confidence': 0.83}, type=<class 'dict'>
+  Checkbox 9: {'position': [174, 1614, 37, 37], 'score': 0.89, 'label': 'empty', 'status': 'empty', 'confidence': 0.89}, type=<class 'dict'>
+  Checkbox 10: {'position': [905, 1614, 37, 37], 'score': 0.88, 'label': 'empty', 'status': 'empty', 'confidence': 0.88}, type=<class 'dict'>
+  Checkbox 11: {'position': [183, 1971, 37, 37], 'score': 0.95, 'label': 'ticked', 'status': 'ticked', 'confidence': 0.95}, type=<class 'dict'>
+  Checkbox 12: {'position': [720, 1971, 37, 37], 'score': 0.89, 'label': 'empty', 'status': 'empty', 'confidence': 0.89}, type=<class 'dict'>
+  Checkbox 13: {'position': [1256, 1971, 37, 37], 'score': 0.88, 'label': 'empty', 'status': 'empty', 'confidence': 0.88}, type=<class 'dict'>
+  Checkbox 14: {'position': [1794, 1971, 37, 37], 'score': 0.84, 'label': 'empty', 'status': 'empty', 'confidence': 0.84}, type=<class 'dict'>
+  Checkbox 15: {'position': [182, 2031, 37, 37], 'score': 0.86, 'label': 'empty', 'status': 'empty', 'confidence': 0.86}, type=<class 'dict'>
+  Checkbox 16: {'position': [720, 2031, 37, 37], 'score': 0.89, 'label': 'empty', 'status': 'empty', 'confidence': 0.89}, type=<class 'dict'>
+  Checkbox 17: {'position': [1256, 2031, 37, 37], 'score': 0.88, 'label': 'empty', 'status': 'empty', 'confidence': 0.88}, type=<class 'dict'>
+  Checkbox 18: {'position': [1794, 2031, 37, 37], 'score': 0.83, 'label': 'empty', 'status': 'empty', 'confidence': 0.83}, type=<class 'dict'>
+  Checkbox 19: {'position': [182, 2092, 37, 37], 'score': 0.88, 'label': 'empty', 'status': 'empty', 'confidence': 0.88}, type=<class 'dict'>
+  Checkbox 20: {'position': [720, 2092, 37, 37], 'score': 0.9, 'label': 'empty', 'status': 'empty', 'confidence': 0.9}, type=<class 'dict'>
+  Checkbox 21: {'position': [183, 2241, 37, 37], 'score': 0.94, 'label': 'ticked', 'status': 'ticked', 'confidence': 0.94}, type=<class 'dict'>
+  Checkbox 22: {'position': [721, 2241, 37, 37], 'score': 0.97, 'label': 'ticked', 'status': 'ticked', 'confidence': 0.97}, type=<class 'dict'>
+  Checkbox 23: {'position': [1256, 2242, 37, 37], 'score': 0.97, 'label': 'empty', 'status': 'empty', 'confidence': 0.97}, type=<class 'dict'>
+  Checkbox 24: {'position': [1794, 2242, 37, 37], 'score': 0.92, 'label': 'empty', 'status': 'empty', 'confidence': 0.92}, type=<class 'dict'>
+  Checkbox 25: {'position': [182, 2302, 37, 37], 'score': 0.95, 'label': 'empty', 'status': 'empty', 'confidence': 0.95}, type=<class 'dict'>
+  Checkbox 26: {'position': [720, 2302, 37, 37], 'score': 0.97, 'label': 'empty', 'status': 'empty', 'confidence': 0.97}, type=<class 'dict'>
+  Checkbox 27: {'position': [1256, 2302, 37, 37], 'score': 0.96, 'label': 'empty', 'status': 'empty', 'confidence': 0.96}, type=<class 'dict'>
+  Checkbox 28: {'position': [1794, 2302, 37, 37], 'score': 0.91, 'label': 'empty', 'status': 'empty', 'confidence': 0.91}, type=<class 'dict'>
+  Checkbox 29: {'position': [182, 2362, 37, 37], 'score': 0.94, 'label': 'empty', 'status': 'empty', 'confidence': 0.94}, type=<class 'dict'>
+  Checkbox 30: {'position': [720, 2362, 37, 37], 'score': 0.97, 'label': 'empty', 'status': 'empty', 'confidence': 0.97}, type=<class 'dict'>
+  Checkbox 31: {'position': [1256, 2362, 37, 37], 'score': 0.96, 'label': 'empty', 'status': 'empty', 'confidence': 0.96}, type=<class 'dict'>
+  Checkbox 32: {'position': [1794, 2362, 37, 37], 'score': 0.91, 'label': 'empty', 'status': 'empty', 'confidence': 0.91}, type=<class 'dict'>
+  Checkbox 33: {'position': [182, 2422, 37, 37], 'score': 0.95, 'label': 'empty', 'status': 'empty', 'confidence': 0.95}, type=<class 'dict'>
+Template matches: 34 checkboxes detected
+[LABEL POSITIONS]
+  Label 'None/ NA' matched at (x=227, y=1986)
+  Label 'None/ NA' matched at (x=228, y=2429)
+  Label 'Cancer' matched at (x=305, y=114)
+  Label 'Cancer' matched at (x=305, y=114)
+  Label 'Diabetes' matched at (x=169, y=152)
+  Label 'Heart Disease' matched at (x=1120, y=282)
+  Label 'High Blood Pressure' matched at (x=185, y=2034)
+  Label 'Thyroid' matched at (x=723, y=2094)
+  Label 'Thyroid' matched at (x=763, y=2094)
+  Label 'Thyroid' matched at (x=723, y=2094)
+  Label 'Thyroid' matched at (x=763, y=2094)
+  Label 'none' matched at (x=227, y=1986)
+  Label 'none' matched at (x=228, y=2429)
+  Label 'none' matched at (x=228, y=2429)
+  Label 'ADD' matched at (x=723, y=1974)
+  Label 'Antidepresssant' matched at (x=1255, y=1970)
+  Label 'Antidepresssant' matched at (x=1299, y=1974)
+  Label 'Antacid' matched at (x=1797, y=1974)
+  Label 'Blood Pressure' matched at (x=185, y=2034)
+  Label 'Diabetic' matched at (x=723, y=2034)
+  Label 'Diabetic' matched at (x=765, y=2038)
+  Label 'NSAID' matched at (x=1259, y=2034)
+  Label 'Statin' matched at (x=1797, y=2034)
+  Label 'Steroid' matched at (x=185, y=2094)
+  Label 'Steroid' matched at (x=227, y=2098)
+  Label 'Steroid' matched at (x=227, y=2098)
+  Label 'Fibre' matched at (x=228, y=2248)
+  Label 'MultiVitamin' matched at (x=228, y=2248)
+  Label 'MultiVitamin' matched at (x=723, y=2241)
+  Label 'Calcium' matched at (x=1259, y=2244)
+  Label 'Calcium' matched at (x=1259, y=2244)
+  Label 'Fish Oil' matched at (x=1797, y=2244)
+  Label 'Hair/Skin/Nail' matched at (x=185, y=2304)
+  Label 'Hair/Skin/Nail' matched at (x=228, y=2308)
+  Label 'Hormone' matched at (x=723, y=2304)
+  Label 'lron' matched at (x=1259, y=2304)
+  Label 'Joint' matched at (x=1793, y=2300)
+  Label 'Joint' matched at (x=1837, y=2308)
+  Label 'Sleep' matched at (x=185, y=2364)
+  Label 'Sleep' matched at (x=227, y=2368)
+  Label 'Sport' matched at (x=719, y=2360)
+  Label 'Vitamin D' matched at (x=1259, y=2364)
+  Label 'Vitamin D' matched at (x=1259, y=2364)
+  Label 'Weight Loss' matched at (x=1797, y=2364)
+  Label 'None' matched at (x=227, y=1986)
+  Label 'None' matched at (x=228, y=2429)
+  Label 'None' matched at (x=228, y=2429)
+  Label 'Yes' matched at (x=723, y=548)
+  Label 'Yes' matched at (x=226, y=1113)
+  Label 'Yes' matched at (x=723, y=548)
+  Label 'Yes' matched at (x=226, y=1113)
+  Label 'No' matched at (x=228, y=552)
+  Label 'No' matched at (x=723, y=828)
+  Label 'No' matched at (x=723, y=1389)
+  Label 'No' matched at (x=228, y=552)
+  Label 'No' matched at (x=723, y=828)
+  Label 'No' matched at (x=723, y=1389)
+[WARN] No anchor found for section 'Please check those which you have or have had'
+[ANCHOR TEXT] 'Current Medications' matched section 'Current Medications' at y=1920
+[MATCH] Section 'Current Medications' anchored at y=1920, extended to y=2142
+[ANCHOR TEXT] 'Please list all current supplements you are taking and the dosage' matched section 'Please list all current supplements you are taking and the dosage' at y=2191
+[MATCH] Section 'Please list all current supplements you are taking and the dosage' anchored at y=2191, extended to y=2472
+[ANCHOR TEXT] 'Tobacco' matched section 'Tobacco' at y=494
+[MATCH] Section 'Tobacco' anchored at y=494, extended to y=595
+[ANCHOR TEXT] 'Alcohol' matched section 'Alcohol' at y=774
+[MATCH] Section 'Alcohol' anchored at y=774, extended to y=875
+[SKIP] Label 'none' at y=2429 is outside section 'Current Medications' bounds (1920û2142)
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'ADD' -> Closest checkbox at (x=720, y=1971) | Delta-x=3, Delta-y=3
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'Antidepresssant' -> Closest checkbox at (x=1256, y=1971) | Delta-x=43, Delta-y=3
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'Antacid' -> Closest checkbox at (x=1794, y=1971) | Delta-x=3, Delta-y=3
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'Blood Pressure' -> Closest checkbox at (x=182, y=2031) | Delta-x=3, Delta-y=3
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'Diabetic' -> Closest checkbox at (x=720, y=2031) | Delta-x=45, Delta-y=7
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'NSAID' -> Closest checkbox at (x=1256, y=2031) | Delta-x=3, Delta-y=3
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'Statin' -> Closest checkbox at (x=1794, y=2031) | Delta-x=3, Delta-y=3
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'Steroid' -> Closest checkbox at (x=182, y=2092) | Delta-x=45, Delta-y=6
+[LABEL -> CHECKBOX] Section 'Current Medications' | Label 'Thyroid' -> Closest checkbox at (x=720, y=2092) | Delta-x=43, Delta-y=2
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Fibre' -> Closest checkbox at (x=183, y=2241) | Delta-x=45, Delta-y=7
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'MultiVitamin' -> Closest checkbox at (x=721, y=2241) | Delta-x=2, Delta-y=0
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Calcium' -> Closest checkbox at (x=1256, y=2242) | Delta-x=3, Delta-y=2
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Fish Oil' -> Closest checkbox at (x=1794, y=2242) | Delta-x=3, Delta-y=2
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Hair/Skin/Nail' -> Closest checkbox at (x=182, y=2302) | Delta-x=46, Delta-y=6
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Hormone' -> Closest checkbox at (x=720, y=2302) | Delta-x=3, Delta-y=2
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'lron' -> Closest checkbox at (x=1256, y=2302) | Delta-x=3, Delta-y=2
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Joint' -> Closest checkbox at (x=1794, y=2302) | Delta-x=43, Delta-y=6
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Sleep' -> Closest checkbox at (x=182, y=2362) | Delta-x=45, Delta-y=6
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Sport' -> Closest checkbox at (x=720, y=2362) | Delta-x=1, Delta-y=2
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Vitamin D' -> Closest checkbox at (x=1256, y=2362) | Delta-x=3, Delta-y=2
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'Weight Loss' -> Closest checkbox at (x=1794, y=2362) | Delta-x=3, Delta-y=2
+[LABEL -> CHECKBOX] Section 'Please list all current supplements you are taking and the dosage' | Label 'None' -> Closest checkbox at (x=182, y=2422) | Delta-x=46, Delta-y=7
+[SKIP] Label 'Yes' at y=1113 is outside section 'Tobacco' bounds (494û595)
+[SKIP] Label 'No' at y=1389 is outside section 'Tobacco' bounds (494û595)
+[SKIP] Label 'Yes' at y=1113 is outside section 'Alcohol' bounds (774û875)
+[SKIP] Label 'No' at y=1389 is outside section 'Alcohol' bounds (774û875)
+[WARN] Skipping section 'Please check those which you have or have had' ù no region found
+[INFO] Section 'Current Medications' has 10 checkboxes in region y=1920û2142
+[DEBUG] Section 'Current Medications' clustered into 3 rows
+  Row 0: y=1971.0, boxes=4
+  Row 1: y=2031.0, boxes=4
+  Row 2: y=2092.0, boxes=2
+[MATCHED] Label 'none' assigned to checkbox at (183, 1971) in section 'Current Medications'
+[SKIP] Label 'none' at y=2429 is outside section 'Current Medications' bounds (1920û2142)
+[SKIP] Label 'none' at y=2429 is outside section 'Current Medications' bounds (1920û2142)
+[MATCHED] Label 'ADD' assigned to checkbox at (720, 1971) in section 'Current Medications'
+[MATCHED] Label 'Antidepresssant' assigned to checkbox at (1256, 1971) in section 'Current Medications'
+[MISS] Label 'Antidepresssant' closest checkbox already used
+[MATCHED] Label 'Antacid' assigned to checkbox at (1794, 1971) in section 'Current Medications'
+[MATCHED] Label 'Blood Pressure' assigned to checkbox at (182, 2031) in section 'Current Medications'
+[MATCHED] Label 'Diabetic' assigned to checkbox at (720, 2031) in section 'Current Medications'
+[MISS] Label 'Diabetic' closest checkbox already used
+[MATCHED] Label 'NSAID' assigned to checkbox at (1256, 2031) in section 'Current Medications'
+[MATCHED] Label 'Statin' assigned to checkbox at (1794, 2031) in section 'Current Medications'
+[MATCHED] Label 'Steroid' assigned to checkbox at (182, 2092) in section 'Current Medications'
+[MISS] Label 'Steroid' closest checkbox already used
+[MISS] Label 'Steroid' closest checkbox already used
+[MATCHED] Label 'Thyroid' assigned to checkbox at (720, 2092) in section 'Current Medications'
+[MISS] Label 'Thyroid' closest checkbox already used
+[MISS] Label 'Thyroid' closest checkbox already used
+[MISS] Label 'Thyroid' closest checkbox already used
+[FINAL CHECKBOXES FOR SECTION 'Current Medications']
+  none -> ticked @ [183, 1971, 37, 37]
+  ADD -> empty @ [720, 1971, 37, 37]
+  Antidepresssant -> empty @ [1256, 1971, 37, 37]
+  Antidepresssant -> missing @ [0, 0, 0, 0]
+  Antacid -> empty @ [1794, 1971, 37, 37]
+  Blood Pressure -> empty @ [182, 2031, 37, 37]
+  Diabetic -> empty @ [720, 2031, 37, 37]
+  Diabetic -> missing @ [0, 0, 0, 0]
+  NSAID -> empty @ [1256, 2031, 37, 37]
+  Statin -> empty @ [1794, 2031, 37, 37]
+  Steroid -> empty @ [182, 2092, 37, 37]
+  Steroid -> missing @ [0, 0, 0, 0]
+  Steroid -> missing @ [0, 0, 0, 0]
+  Thyroid -> empty @ [720, 2092, 37, 37]
+  Thyroid -> missing @ [0, 0, 0, 0]
+  Thyroid -> missing @ [0, 0, 0, 0]
+  Thyroid -> missing @ [0, 0, 0, 0]
+[INFO] Section 'Please list all current supplements you are taking and the dosage' has 13 checkboxes in region y=2191û2472
+[DEBUG] Section 'Please list all current supplements you are taking and the dosage' clustered into 4 rows
+  Row 0: y=2241.5, boxes=4
+  Row 1: y=2302.0, boxes=4
+  Row 2: y=2362.0, boxes=4
+  Row 3: y=2422.0, boxes=1
+[MATCHED] Label 'Fibre' assigned to checkbox at (183, 2241) in section 'Please list all current supplements you are taking and the dosage'
+[MISS] Label 'MultiVitamin' closest checkbox already used
+[MATCHED] Label 'MultiVitamin' assigned to checkbox at (721, 2241) in section 'Please list all current supplements you are taking and the dosage'
+[MATCHED] Label 'Calcium' assigned to checkbox at (1256, 2242) in section 'Please list all current supplements you are taking and the dosage'
+[MISS] Label 'Calcium' closest checkbox already used
+[MATCHED] Label 'Fish Oil' assigned to checkbox at (1794, 2242) in section 'Please list all current supplements you are taking and the dosage'
+[MATCHED] Label 'Hair/Skin/Nail' assigned to checkbox at (182, 2302) in section 'Please list all current supplements you are taking and the dosage'
+[MISS] Label 'Hair/Skin/Nail' closest checkbox already used
+[MATCHED] Label 'Hormone' assigned to checkbox at (720, 2302) in section 'Please list all current supplements you are taking and the dosage'
+[MATCHED] Label 'lron' assigned to checkbox at (1256, 2302) in section 'Please list all current supplements you are taking and the dosage'
+[MATCHED] Label 'Joint' assigned to checkbox at (1794, 2302) in section 'Please list all current supplements you are taking and the dosage'
+[MISS] Label 'Joint' closest checkbox already used
+[MATCHED] Label 'Sleep' assigned to checkbox at (182, 2362) in section 'Please list all current supplements you are taking and the dosage'
+[MISS] Label 'Sleep' closest checkbox already used
+[MATCHED] Label 'Sport' assigned to checkbox at (720, 2362) in section 'Please list all current supplements you are taking and the dosage'
+[MATCHED] Label 'Vitamin D' assigned to checkbox at (1256, 2362) in section 'Please list all current supplements you are taking and the dosage'
+[MISS] Label 'Vitamin D' closest checkbox already used
+[MATCHED] Label 'Weight Loss' assigned to checkbox at (1794, 2362) in section 'Please list all current supplements you are taking and the dosage'
+[SKIP] Label 'None' at y=1986 is outside section 'Please list all current supplements you are taking and the dosage' bounds (2191û2472)
+[MATCHED] Label 'None' assigned to checkbox at (182, 2422) in section 'Please list all current supplements you are taking and the dosage'
+[MISS] Label 'None' closest checkbox already used
+[FINAL CHECKBOXES FOR SECTION 'Please list all current supplements you are taking and the dosage']
+  Fibre -> ticked @ [183, 2241, 37, 37]
+  MultiVitamin -> missing @ [0, 0, 0, 0]
+  MultiVitamin -> ticked @ [721, 2241, 37, 37]
+  Calcium -> empty @ [1256, 2242, 37, 37]
+  Calcium -> missing @ [0, 0, 0, 0]
+  Fish Oil -> empty @ [1794, 2242, 37, 37]
+  Hair/Skin/Nail -> empty @ [182, 2302, 37, 37]
+  Hair/Skin/Nail -> missing @ [0, 0, 0, 0]
+  Hormone -> empty @ [720, 2302, 37, 37]
+  lron -> empty @ [1256, 2302, 37, 37]
+  Joint -> empty @ [1794, 2302, 37, 37]
+  Joint -> missing @ [0, 0, 0, 0]
+  Sleep -> empty @ [182, 2362, 37, 37]
+  Sleep -> missing @ [0, 0, 0, 0]
+  Sport -> empty @ [720, 2362, 37, 37]
+  Vitamin D -> empty @ [1256, 2362, 37, 37]
+  Vitamin D -> missing @ [0, 0, 0, 0]
+  Weight Loss -> empty @ [1794, 2362, 37, 37]
+  None -> empty @ [182, 2422, 37, 37]
+  None -> missing @ [0, 0, 0, 0]
+[INFO] Section 'Tobacco' has 2 checkboxes in region y=494û595
+[DEBUG] Section 'Tobacco' clustered into 1 rows
+  Row 0: y=545.0, boxes=2
+[MATCHED] Label 'Yes' assigned to checkbox at (720, 545) in section 'Tobacco'
+[SKIP] Label 'Yes' at y=1113 is outside section 'Tobacco' bounds (494û595)
+[MISS] Label 'Yes' closest checkbox already used
+[SKIP] Label 'Yes' at y=1113 is outside section 'Tobacco' bounds (494û595)
+[MATCHED] Label 'No' assigned to checkbox at (183, 545) in section 'Tobacco'
+[SKIP] Label 'No' at y=828 is outside section 'Tobacco' bounds (494û595)
+[SKIP] Label 'No' at y=1389 is outside section 'Tobacco' bounds (494û595)
+[MISS] Label 'No' closest checkbox already used
+[SKIP] Label 'No' at y=828 is outside section 'Tobacco' bounds (494û595)
+[SKIP] Label 'No' at y=1389 is outside section 'Tobacco' bounds (494û595)
+[FINAL CHECKBOXES FOR SECTION 'Tobacco']
+  Yes -> empty @ [720, 545, 37, 37]
+  Yes -> missing @ [0, 0, 0, 0]
+  No -> ticked @ [183, 545, 37, 37]
+  No -> missing @ [0, 0, 0, 0]
+[INFO] Section 'Alcohol' has 2 checkboxes in region y=774û875
+[DEBUG] Section 'Alcohol' clustered into 1 rows
+  Row 0: y=825.0, boxes=2
+[SKIP] Label 'Yes' at y=548 is outside section 'Alcohol' bounds (774û875)
+[SKIP] Label 'Yes' at y=1113 is outside section 'Alcohol' bounds (774û875)
+[SKIP] Label 'Yes' at y=548 is outside section 'Alcohol' bounds (774û875)
+[SKIP] Label 'Yes' at y=1113 is outside section 'Alcohol' bounds (774û875)
+[SKIP] Label 'No' at y=552 is outside section 'Alcohol' bounds (774û875)
+[MATCHED] Label 'No' assigned to checkbox at (720, 825) in section 'Alcohol'
+[SKIP] Label 'No' at y=1389 is outside section 'Alcohol' bounds (774û875)
+[SKIP] Label 'No' at y=552 is outside section 'Alcohol' bounds (774û875)
+[MISS] Label 'No' closest checkbox already used
+[SKIP] Label 'No' at y=1389 is outside section 'Alcohol' bounds (774û875)
+[FINAL CHECKBOXES FOR SECTION 'Alcohol']
+  No -> empty @ [720, 825, 37, 37]
+  No -> missing @ [0, 0, 0, 0]
