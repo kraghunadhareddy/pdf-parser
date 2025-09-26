@@ -259,12 +259,410 @@
                             ]
                         }
                     ]
+                },
+                {
+                    "section": "MUSCULOSKELETAL",
+                    "checkboxes": [
+                        {
+                            "label": "Other",
+                            "status": "missing",
+                            "score": 0.0,
+                            "confidence": 0.0,
+                            "position": [
+                                0,
+                                0,
+                                0,
+                                0
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "SKIN",
+                    "checkboxes": [
+                        {
+                            "label": "Other",
+                            "status": "missing",
+                            "score": 0.0,
+                            "confidence": 0.0,
+                            "position": [
+                                0,
+                                0,
+                                0,
+                                0
+                            ]
+                        }
+                    ]
                 }
             ]
         },
         {
             "page_number": 2,
-            "sections": []
+            "sections": [
+                {
+                    "section": "Reason for visit/Ongoing Medical Problems",
+                    "checkboxes": [
+                        {
+                            "label": "Difficulty Sleeping",
+                            "status": "ticked",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                183,
+                                112,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Muscle and/or Joint Pain",
+                            "status": "ticked",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                721,
+                                112,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Night Sweats",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                1256,
+                                113,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Vaginal Dryness",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1794,
+                                113,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Mood Swings",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                182,
+                                173,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Fatigue",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                720,
+                                173,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Hot Flashes",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                1256,
+                                173,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Decrease Sex Drive",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1794,
+                                173,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Foggy Thinking",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                182,
+                                233,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Painful Intercourse",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                720,
+                                233,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Difficulty Concentrating",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                1256,
+                                233,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Anxiety",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                1794,
+                                233,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "None/ NA",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                182,
+                                293,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "Surgeries/Major Events",
+                    "checkboxes": [
+                        {
+                            "label": "Wisdom Teeth",
+                            "status": "ticked",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                183,
+                                690,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Hysterectomy",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                720,
+                                691,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Joint Surgery",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                1256,
+                                691,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "C-Section",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1794,
+                                691,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Gallbladder",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                182,
+                                751,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Breast Biopsy",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                720,
+                                751,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Breast Augmentation",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                1256,
+                                751,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Tonsillectomy",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                1794,
+                                751,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Uterine Biopsy",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                182,
+                                811,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Hernia Repair",
+                            "status": "empty",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                720,
+                                811,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Appendectomy",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                1256,
+                                811,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "None/ NA",
+                            "status": "empty",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                1794,
+                                811,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "MENSTRUAL HISTORY",
+                    "checkboxes": [
+                        {
+                            "label": "Ablation",
+                            "status": "empty",
+                            "score": 0.92,
+                            "confidence": 0.92,
+                            "position": [
+                                720,
+                                983,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Hysterectomy",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                1256,
+                                983,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Menopause",
+                            "status": "empty",
+                            "score": 0.92,
+                            "confidence": 0.92,
+                            "position": [
+                                1794,
+                                983,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "None/ NA",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                182,
+                                1066,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                }
+            ]
         },
         {
             "page_number": 3,
@@ -612,16 +1010,1017 @@
                             ]
                         }
                     ]
+                },
+                {
+                    "section": "Caffeine",
+                    "checkboxes": [
+                        {
+                            "label": "Yes",
+                            "status": "ticked",
+                            "score": 0.94,
+                            "confidence": 0.94,
+                            "position": [
+                                183,
+                                1105,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "No",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                720,
+                                1106,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "Exercise",
+                    "checkboxes": [
+                        {
+                            "label": "Yes",
+                            "status": "ticked",
+                            "score": 0.92,
+                            "confidence": 0.92,
+                            "position": [
+                                183,
+                                1385,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "No",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                720,
+                                1386,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "SKIN",
+                    "checkboxes": [
+                        {
+                            "label": "Other",
+                            "status": "missing",
+                            "score": 0.0,
+                            "confidence": 0.0,
+                            "position": [
+                                0,
+                                0,
+                                0,
+                                0
+                            ]
+                        }
+                    ]
                 }
             ]
         },
         {
             "page_number": 4,
-            "sections": []
+            "sections": [
+                {
+                    "section": "GENERAL",
+                    "checkboxes": [
+                        {
+                            "label": "Abnormal Weight Gain",
+                            "status": "ticked",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                183,
+                                289,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Abnormal Weight Loss",
+                            "status": "empty",
+                            "score": 0.94,
+                            "confidence": 0.94,
+                            "position": [
+                                720,
+                                290,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Night Sweats",
+                            "status": "empty",
+                            "score": 0.91,
+                            "confidence": 0.91,
+                            "position": [
+                                1256,
+                                290,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Appetite Change",
+                            "status": "empty",
+                            "score": 0.94,
+                            "confidence": 0.94,
+                            "position": [
+                                1794,
+                                290,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Decreased Appetite",
+                            "status": "empty",
+                            "score": 0.91,
+                            "confidence": 0.91,
+                            "position": [
+                                182,
+                                350,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Fatigue",
+                            "status": "empty",
+                            "score": 0.93,
+                            "confidence": 0.93,
+                            "position": [
+                                720,
+                                350,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "EYES",
+                    "checkboxes": [
+                        {
+                            "label": "Blurry Vision",
+                            "status": "ticked",
+                            "score": 0.93,
+                            "confidence": 0.93,
+                            "position": [
+                                183,
+                                500,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Double Vision",
+                            "status": "empty",
+                            "score": 0.92,
+                            "confidence": 0.92,
+                            "position": [
+                                720,
+                                500,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Visual Disturbances",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                1256,
+                                500,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 0.92,
+                            "confidence": 0.92,
+                            "position": [
+                                1794,
+                                500,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "None",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                182,
+                                561,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "CARDIOVASCULAR",
+                    "checkboxes": [
+                        {
+                            "label": "None",
+                            "status": "ticked",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                183,
+                                840,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Chest Pain/Pressure",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                841,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Fainting",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                841,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Palpitations",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                841,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Dizziness",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                182,
+                                901,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                901,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "RESPIRATORY",
+                    "checkboxes": [
+                        {
+                            "label": "Wheezing",
+                            "status": "ticked",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                183,
+                                1180,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Shortness of Breath",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                720,
+                                1181,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Coughing",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                1256,
+                                1181,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                1794,
+                                1181,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "None",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                182,
+                                1241,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "GI",
+                    "checkboxes": [
+                        {
+                            "label": "None",
+                            "status": "ticked",
+                            "score": 0.93,
+                            "confidence": 0.93,
+                            "position": [
+                                183,
+                                1521,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Persistent Nausea",
+                            "status": "empty",
+                            "score": 0.92,
+                            "confidence": 0.92,
+                            "position": [
+                                720,
+                                1521,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Abdominal Pain",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                1256,
+                                1521,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Heartburn",
+                            "status": "empty",
+                            "score": 0.92,
+                            "confidence": 0.92,
+                            "position": [
+                                1794,
+                                1521,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Vomiting",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                182,
+                                1582,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Difficulty Swallowing",
+                            "status": "empty",
+                            "score": 0.93,
+                            "confidence": 0.93,
+                            "position": [
+                                720,
+                                1582,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                1256,
+                                1582,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "GENITOURINARY",
+                    "checkboxes": [
+                        {
+                            "label": "None/ NA",
+                            "status": "ticked",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                183,
+                                1861,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Urinary Frequency",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                1862,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Night Time Urination",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                1862,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Pain with Urination",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                1862,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Urinary Urgency",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                182,
+                                1922,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Urinary Hesitancy",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                1922,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Blood in Urine",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                1922,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                1922,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "NEUROLOGIC",
+                    "checkboxes": [
+                        {
+                            "label": "None/ NA",
+                            "status": "ticked",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                183,
+                                2201,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Headaches",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                720,
+                                2202,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Numbness",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                1256,
+                                2202,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Weakness",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                1794,
+                                2202,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Tingling",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                182,
+                                2262,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Poor Balance",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                720,
+                                2262,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Decreased Mental Focus",
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                1256,
+                                2262,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Foggy Thinking",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                1794,
+                                2262,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 0.93,
+                            "confidence": 0.93,
+                            "position": [
+                                182,
+                                2322,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "ENT",
+                    "checkboxes": [
+                        {
+                            "label": "Nasal Congestion",
+                            "status": "ticked",
+                            "score": 0.96,
+                            "confidence": 0.96,
+                            "position": [
+                                183,
+                                2602,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Hearing Loss",
+                            "status": "empty",
+                            "score": 0.93,
+                            "confidence": 0.93,
+                            "position": [
+                                720,
+                                2603,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Dizziness",
+                            "status": "empty",
+                            "score": 0.9,
+                            "confidence": 0.9,
+                            "position": [
+                                1256,
+                                2603,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Ear Pain",
+                            "status": "empty",
+                            "score": 0.93,
+                            "confidence": 0.93,
+                            "position": [
+                                1794,
+                                2603,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 0.94,
+                            "confidence": 0.94,
+                            "position": [
+                                182,
+                                2663,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "None/ NA",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                720,
+                                2663,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "MUSCULOSKELETAL",
+                    "checkboxes": [
+                        {
+                            "label": "Other",
+                            "status": "ticked",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                183,
+                                2942,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Joint Pain",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                2943,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Decrease in Strength",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                1256,
+                                2943,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Decrease in Endurance",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                2943,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Decrease in Muscle Size",
+                            "status": "empty",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                182,
+                                3003,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Decrease in Performance",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                720,
+                                3003,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Swelling",
+                            "status": "empty",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                1256,
+                                3003,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Muscle Pain",
+                            "status": "empty",
+                            "score": 1.0,
+                            "confidence": 1.0,
+                            "position": [
+                                1794,
+                                3003,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                }
+            ]
         },
         {
             "page_number": 5,
-            "sections": []
+            "sections": [
+                {
+                    "section": "SKIN",
+                    "checkboxes": [
+                        {
+                            "label": "Other",
+                            "status": "ticked",
+                            "score": 0.98,
+                            "confidence": 0.98,
+                            "position": [
+                                183,
+                                112,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Rashes",
+                            "status": "empty",
+                            "score": 0.89,
+                            "confidence": 0.89,
+                            "position": [
+                                720,
+                                112,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Acne",
+                            "status": "empty",
+                            "score": 0.87,
+                            "confidence": 0.87,
+                            "position": [
+                                1256,
+                                112,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Suspicious Skin Lesions",
+                            "status": "empty",
+                            "score": 0.89,
+                            "confidence": 0.89,
+                            "position": [
+                                1794,
+                                112,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "PSYCHIATRIC",
+                    "checkboxes": [
+                        {
+                            "label": "Anxiety",
+                            "status": "empty",
+                            "score": 0.87,
+                            "confidence": 0.87,
+                            "position": [
+                                182,
+                                393,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Depression",
+                            "status": "empty",
+                            "score": 0.89,
+                            "confidence": 0.89,
+                            "position": [
+                                720,
+                                393,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Insomnia",
+                            "status": "empty",
+                            "score": 0.87,
+                            "confidence": 0.87,
+                            "position": [
+                                1256,
+                                393,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "lrritability",
+                            "status": "empty",
+                            "score": 0.89,
+                            "confidence": 0.89,
+                            "position": [
+                                1794,
+                                393,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                182,
+                                454,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "section": "ENDOCRINE",
+                    "checkboxes": [
+                        {
+                            "label": "Excessive Thirst",
+                            "status": "ticked",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                183,
+                                734,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Hot/Cold Intolerance",
+                            "status": "ticked",
+                            "score": 0.97,
+                            "confidence": 0.97,
+                            "position": [
+                                721,
+                                734,
+                                37,
+                                37
+                            ]
+                        },
+                        {
+                            "label": "Other",
+                            "status": "empty",
+                            "score": 0.95,
+                            "confidence": 0.95,
+                            "position": [
+                                1256,
+                                735,
+                                37,
+                                37
+                            ]
+                        }
+                    ]
+                }
+            ]
         },
         {
             "page_number": 6,

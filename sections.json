@@ -28,5 +28,90 @@
     {
         "section_name": "Alcohol",
         "labels": ["Yes", "No"]
+    },
+    {
+        "section_name": "Caffeine",
+        "labels": ["Yes", "No"]
+    },
+    {
+        "section_name": "Exercise",
+        "labels": ["Yes", "No"]
+    },
+    {
+        "section_name": "Reason for visit/Ongoing Medical Problems",
+        "labels": ["Difficulty Sleeping", "Muscle and/or Joint Pain", "Night Sweats", "Vaginal Dryness",
+                    "Mood Swings", "Fatigue", "Hot Flashes", "Decrease Sex Drive",
+                    "Foggy Thinking", "Painful Intercourse", "Difficulty Concentrating", "Anxiety",
+                    "None/ NA"]
+    },
+    {
+        "section_name": "Surgeries/Major Events",
+        "labels": ["Wisdom Teeth", "Hysterectomy", "Joint Surgery", "C-Section",
+                    "Gallbladder", "Breast Biopsy", "Breast Augmentation", "Tonsillectomy", 
+                    "Uterine Biopsy", "Hernia Repair", "Appendectomy", "None/ NA"]
+    },
+    {
+        "section_name": "MENSTRUAL HISTORY",
+        "labels": ["Currently have regular menstrual cycles", "Ablation", "Hysterectomy", "Menopause",
+                    "None/ NA"]
+    },
+    {
+        "section_name": "GENERAL",
+        "labels": ["Abnormal Weight Gain", "Abnormal Weight Loss", "Night Sweats", "Appetite Change",
+                    "Decreased Appetite", "Fatigue"]
+    },
+    {
+        "section_name": "EYES",
+        "labels": ["Blurry Vision", "Double Vision", "Visual Disturbances", "Other",
+                    "None"]
+    },
+    {
+        "section_name": "CARDIOVASCULAR",
+        "labels": ["None", "Chest Pain/Pressure", "Fainting", "Palpitations",
+                    "Dizziness", "Other"]
+    },
+    {
+        "section_name": "RESPIRATORY",
+        "labels": ["Wheezing", "Shortness of Breath", "Coughing", "Other",  
+                    "None"]
+    },
+    {
+        "section_name": "GI",
+        "labels": ["None", "Persistent Nausea", "Abdominal Pain", "Heartburn",
+                    "Vomiting", "Difficulty Swallowing", "Other"]
+    },
+    {
+        "section_name": "GENITOURINARY",
+        "labels": ["None/ NA", "Urinary Frequency", "Night Time Urination", "Pain with Urination",
+                    "Urinary Urgency", "Urinary Hesitancy", "Blood in Urine", "Other"]
+    },
+    {
+        "section_name": "NEUROLOGIC",
+        "labels": ["None/ NA", "Headaches",  "Numbness",  "Weakness",
+                    "Tingling", "Poor Balance", "Decreased Mental Focus", "Foggy Thinking",
+                    "Other"]
+    },
+    {
+        "section_name": "ENT",
+        "labels": ["Nasal Congestion", "Hearing Loss",  "Dizziness",  "Ear Pain",
+                    "Other", "None/ NA"]
+    },
+    {
+        "section_name": "MUSCULOSKELETAL",
+        "labels": ["Other", "Joint Pain",  "Decrease in Strength",  "Decrease in Endurance",
+                    "Decrease in Muscle Size", "Decrease in Performance", "Swelling", "Muscle Pain"]
+    },
+    {
+        "section_name": "SKIN",
+        "labels": ["Other",  "Rashes",  "Acne", "Suspicious Skin Lesions"]
+    },
+    {
+        "section_name": "PSYCHIATRIC",
+        "labels": ["Anxiety",  "Depression", "Insomnia", "lrritability",
+                    "Other"]
+    },
+    {
+        "section_name": "ENDOCRINE",
+        "labels": ["Excessive Thirst",  "Hot/Cold Intolerance", "Other"]
     }
 ]
