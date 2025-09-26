@@ -259,40 +259,6 @@
                             ]
                         }
                     ]
-                },
-                {
-                    "section": "MUSCULOSKELETAL",
-                    "checkboxes": [
-                        {
-                            "label": "Other",
-                            "status": "missing",
-                            "score": 0.0,
-                            "confidence": 0.0,
-                            "position": [
-                                0,
-                                0,
-                                0,
-                                0
-                            ]
-                        }
-                    ]
-                },
-                {
-                    "section": "SKIN",
-                    "checkboxes": [
-                        {
-                            "label": "Other",
-                            "status": "missing",
-                            "score": 0.0,
-                            "confidence": 0.0,
-                            "position": [
-                                0,
-                                0,
-                                0,
-                                0
-                            ]
-                        }
-                    ]
                 }
             ]
         },
@@ -1065,23 +1031,6 @@
                                 1386,
                                 37,
                                 37
-                            ]
-                        }
-                    ]
-                },
-                {
-                    "section": "SKIN",
-                    "checkboxes": [
-                        {
-                            "label": "Other",
-                            "status": "missing",
-                            "score": 0.0,
-                            "confidence": 0.0,
-                            "position": [
-                                0,
-                                0,
-                                0,
-                                0
                             ]
                         }
                     ]

@@ -185,7 +185,7 @@ class CheckboxExtractor:
             section_name = section["section_name"]
             anchor_y = None
             for line in sorted_lines:
-                if re.search(r"\b" + re.escape(section_name.lower()) + r"\b", line["text"].lower()):
+                if re.search(r"\b" + re.escape(section_name) + r"\b", line["text"]):
                     anchor_y = line["y"]
                     print(f"[ANCHOR TEXT] '{line['text']}' matched section '{section_name}' at y={anchor_y}")
                     break
