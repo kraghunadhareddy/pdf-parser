@@ -579,6 +579,18 @@
                     "section": "MENSTRUAL HISTORY",
                     "checkboxes": [
                         {
+                            "label": "Currently have regular menstrual cycles",
+                            "status": "ticked",
+                            "score": 0.99,
+                            "confidence": 0.99,
+                            "position": [
+                                183,
+                                960,
+                                37,
+                                37
+                            ]
+                        },
+                        {
                             "label": "Ablation",
                             "status": "empty",
                             "score": 0.92,

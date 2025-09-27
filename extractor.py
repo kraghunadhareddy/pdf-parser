@@ -89,6 +89,165 @@ class CheckboxExtractor:
         return boxes, img
 
     def get_label_positions(self, pil_image, expected_labels, match_threshold=0.8):
+        import unicodedata
+        import re
+        ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+        label_positions = defaultdict(list)
+
+        def normalize_text(text):
+            text = unicodedata.normalize('NFKD', text)
+            text = ''.join(c for c in text if unicodedata.category(c)[0] != 'C')
+            text = text.replace('/', '').replace(' ', '').replace('-', '')
+            text = re.sub(r'^[^a-zA-Z]+', '', text)
+            text = re.sub(r'[^a-zA-Z]+$', '', text)
+            return text
+
+        def clean_label_sequence(seq):
+            normed = [normalize_text(s) for s in seq]
+            joined = ''.join(normed)
+            joined = unicodedata.normalize('NFKD', joined)
+            joined = ''.join(c for c in joined if unicodedata.category(c)[0] != 'C')
+            joined = joined.replace(' ', '')
+            return joined
+
+        # Build tokens for single-line matching
+        tokens = []
+        for i in range(len(ocr_data["text"])):
+            word = ocr_data["text"][i].strip()
+            if not word:
+                continue
+            norm = normalize_text(word)
+            tokens.append({
+                "text": norm,
+                "orig": word,
+                "x": ocr_data["left"][i],
+                "y": ocr_data["top"][i]
+            })
+
+        # Build lines for multi-line matching
+        lines = []
+        for i in range(len(ocr_data["text"])):
+            word = ocr_data["text"][i].strip()
+            if not word:
+                continue
+            x = ocr_data["left"][i]
+            y = ocr_data["top"][i]
+            block = ocr_data["block_num"][i]
+            par = ocr_data["par_num"][i]
+            line_num = ocr_data["line_num"][i]
+            found = False
+            for l in lines:
+                if l["block"] == block and l["par"] == par and l["line_num"] == line_num:
+                    l["words"].append({"text": word, "x": x, "y": y})
+                    found = True
+                    break
+            if not found:
+                lines.append({"block": block, "par": par, "line_num": line_num, "words": [{"text": word, "x": x, "y": y}], "y": y})
+        lines = sorted(lines, key=lambda l: l["y"])
+
+        for lbl in expected_labels:
+            lbl_words = lbl.split()
+            first_word = normalize_text(lbl_words[0])
+            last_word = normalize_text(lbl_words[-1])
+            lbl_clean = clean_label_sequence(lbl_words)
+            n = len(tokens)
+            max_len = len(lbl_words)
+            found = False
+            # Try single-line (token sequence) match first
+            for i in range(n):
+                for j in range(i, min(i + max_len, n)):
+                    seq = tokens[i:j+1]
+                    if not seq:
+                        continue
+                    if first_word in normalize_text(seq[0]["orig"]) and last_word in normalize_text(seq[-1]["orig"]):
+                        seq_clean = clean_label_sequence([t["orig"] for t in seq])
+                        if lbl_clean in seq_clean:
+                            label_positions[lbl].append((seq[0]["x"], seq[0]["y"]))
+                            found = True
+            # Multi-line row-wise lookahead logic
+            if not found:
+                tolerance = 50  # x position tolerance
+                for i, line in enumerate(lines):
+                    # Try to match the first part of the label in this line
+                    line_text = " ".join([w["text"] for w in line["words"]])
+                    norm_line = clean_label_sequence(line_text.split())
+                    match_count = 0
+                    for idx, w in enumerate(lbl_words):
+                        if normalize_text(w) in norm_line:
+                            match_count += 1
+                        else:
+                            break
+                    if match_count == 0:
+                        continue
+                    # Look ahead in next line for next part of label
+                    curr_lbl_idx = match_count
+                    curr_idx = i
+                    x_ref = line["words"][0]["x"]
+                    matched = True
+                    while curr_lbl_idx < len(lbl_words):
+                        if curr_idx + 1 >= len(lines):
+                            matched = False
+                            break
+                        next_line = lines[curr_idx + 1]
+                        next_text = " ".join([w["text"] for w in next_line["words"]])
+                        norm_next = clean_label_sequence(next_text.split())
+                        x_next = next_line["words"][0]["x"]
+                        if abs(x_next - x_ref) > tolerance:
+                            matched = False
+                            break
+                        # Check if next part of label matches
+                        next_match_count = 0
+                        for idx2 in range(curr_lbl_idx, len(lbl_words)):
+                            if normalize_text(lbl_words[idx2]) in norm_next:
+                                next_match_count += 1
+                            else:
+                                break
+                        if next_match_count == 0:
+                            matched = False
+                            break
+                        curr_lbl_idx += next_match_count
+                        curr_idx += 1
+                    if matched:
+                        label_positions[lbl].append((line["words"][0]["x"], line["words"][0]["y"]))
+                        print(f"[MULTILINE ROW LOOKAHEAD] '{lbl}' matched starting at y={line['y']}")
+
+        print("[LABEL POSITIONS]")
+        for lbl, positions in label_positions.items():
+            for pos in positions:
+                print(f"  Label '{lbl}' matched at (x={pos[0]}, y={pos[1]})")
+
+        return label_positions
+        ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+        import unicodedata
+        import re
+        def normalize_text(text):
+            text = unicodedata.normalize('NFKD', text)
+            text = ''.join(c for c in text if unicodedata.category(c)[0] != 'C')
+            text = text.replace('/', '').replace(' ', '').replace('-', '')
+            text = re.sub(r'^[^a-zA-Z]+', '', text)
+            text = re.sub(r'[^a-zA-Z]+$', '', text)
+            return text
+
+        def clean_label_sequence(seq):
+            normed = [normalize_text(s) for s in seq]
+            joined = ''.join(normed)
+            joined = unicodedata.normalize('NFKD', joined)
+            joined = ''.join(c for c in joined if unicodedata.category(c)[0] != 'C')
+            joined = joined.replace(' ', '')
+            return joined
+
+        tokens = []
+        for i in range(len(ocr_data["text"])):
+            word = ocr_data["text"][i].strip()
+            if not word:
+                continue
+            norm = normalize_text(word)
+            tokens.append({
+                "text": norm,
+                "orig": word,
+                "x": ocr_data["left"][i],
+                "y": ocr_data["top"][i]
+            })
         ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
         label_positions = defaultdict(list)
 
@@ -251,38 +410,23 @@ class CheckboxExtractor:
                                     column_tolerance=100, min_row_gap=60):
         output_sections = []
 
+        output_sections = []
+        used_boxes = set()
+        assigned_labels = set()
+
         for sec in sections:
             sec_name = sec["section_name"]
+            sec_checkboxes = []
             if sec_name not in section_regions:
                 print(f"[WARN] Skipping section '{sec_name}' — no region found")
                 continue
-
             region = section_regions[sec_name]
             section_boxes = self.filter_checkboxes_in_region(checkboxes, region)
-            print(f"[INFO] Section '{sec_name}' has {len(section_boxes)} checkboxes in region y={region['y1']}–{region['y2']}")
-
-            rows = self.cluster_checkboxes_by_rows(section_boxes, gap_threshold=50)
-            for row in rows:
-                row["boxes"] = sorted(row["boxes"], key=lambda b: b["position"][0])
-
-            print(f"[DEBUG] Section '{sec_name}' clustered into {len(rows)} rows")
-            for i, row in enumerate(rows):
-                print(f"  Row {i}: y={row['y']:.1f}, boxes={len(row['boxes'])}")
-
-            sec_checkboxes = []
-            used_boxes = set()
-            assigned_labels = set()
-
+            rows = self.cluster_checkboxes_by_rows(section_boxes)
             for lbl in sec["labels"]:
                 assigned = False
                 if lbl not in label_positions:
-                    print(f"[MISS] Label '{lbl}' not found in OCR")
-                    continue
-
-                # Only consider label positions within the section region
-                valid_positions = [(lx, ly) for lx, ly in label_positions[lbl] if region["y1"] <= ly <= region["y2"]]
-                if not valid_positions:
-                    print(f"[MISS] No valid label positions for '{lbl}' in section '{sec_name}'")
+                    print(f"[MISS] Label '{lbl}' not found by OCR")
                     sec_checkboxes.append({
                         "label": lbl,
                         "status": "missing",
@@ -291,44 +435,44 @@ class CheckboxExtractor:
                         "position": [0, 0, 0, 0]
                     })
                     continue
-
-                # Find the label position closest to any checkbox in the section
-                best_assignment = None
-                best_distance = None
-                for lx, ly in valid_positions:
-                    for cb in section_boxes:
-                        cb_x, cb_y, _, _ = cb["position"]
-                        dist = abs(cb_y - ly) + abs(cb_x - lx)
-                        if best_distance is None or dist < best_distance:
-                            best_distance = dist
-                            best_assignment = (lx, ly, cb)
-
-                if best_assignment:
-                    lx, ly, closest_box = best_assignment
-                    cb_x, cb_y, _, _ = closest_box["position"]
-                    best_row = next((row for row in rows if closest_box in row["boxes"]), None)
-                    delta_y = abs(best_row["y"] - ly) if best_row else None
-                    print(f"[DEBUG] Label '{lbl}' assignment candidates: label at ({lx}, {ly}), checkbox at ({cb_x}, {cb_y}), delta_x={abs(cb_x-lx)}, delta_y={abs(cb_y-ly)}, row_delta_y={delta_y}")
-                    box_id = id(closest_box)
-                    if best_row is None or delta_y > min_row_gap:
-                        print(f"[MISS] Label '{lbl}' at ({lx}, {ly}) is too far from any row (row_delta_y={delta_y})")
-                    elif box_id in used_boxes:
-                        print(f"[MISS] Label '{lbl}' at ({lx}, {ly}) closest checkbox already used")
-                    else:
-                        used_boxes.add(box_id)
-                        assigned_labels.add(lbl)
-                        print(f"[MATCHED] Label '{lbl}' assigned to checkbox at ({cb_x}, {cb_y}) in section '{sec_name}'")
-                        sec_checkboxes.append({
-                            "label": lbl,
-                            "status": closest_box["status"],
-                            "score": closest_box["score"],
-                            "confidence": closest_box["confidence"],
-                            "position": closest_box["position"]
-                        })
-                        assigned = True
-
+                for pos in label_positions[lbl]:
+                    lx, ly = pos
+                    # Only consider labels within section bounds
+                    if not (region["y1"] <= ly <= region["y2"]):
+                        continue
+                    # Find closest checkbox in section
+                    best_distance = None
+                    best_assignment = None
+                    for row in rows:
+                        for cb in row["boxes"]:
+                            cb_x, cb_y, _, _ = cb["position"]
+                            dist = abs(cb_y - ly) + abs(cb_x - lx)
+                            if best_distance is None or dist < best_distance:
+                                best_distance = dist
+                                best_assignment = (lx, ly, cb)
+                    if best_assignment:
+                        lx, ly, closest_box = best_assignment
+                        cb_x, cb_y, _, _ = closest_box["position"]
+                        best_row = next((row for row in rows if closest_box in row["boxes"]), None)
+                        delta_y = abs(best_row["y"] - ly) if best_row else None
+                        box_id = id(closest_box)
+                        if best_row is None or delta_y > 60:
+                            continue
+                        elif box_id in used_boxes:
+                            continue
+                        else:
+                            used_boxes.add(box_id)
+                            assigned_labels.add(lbl)
+                            sec_checkboxes.append({
+                                "label": lbl,
+                                "status": closest_box["status"],
+                                "score": closest_box["score"],
+                                "confidence": closest_box["confidence"],
+                                "position": closest_box["position"]
+                            })
+                            assigned = True
+                            break
                 if not assigned:
-                    print(f"[MISS] No valid assignment for label '{lbl}' in section '{sec_name}'")
                     sec_checkboxes.append({
                         "label": lbl,
                         "status": "missing",
@@ -336,16 +480,10 @@ class CheckboxExtractor:
                         "confidence": 0.0,
                         "position": [0, 0, 0, 0]
                     })
-
-            print(f"[FINAL CHECKBOXES FOR SECTION '{sec_name}']")
-            for cb in sec_checkboxes:
-                print(f"  {cb['label']} -> {cb['status']} @ {cb['position']}")
-
             output_sections.append({
                 "section": sec_name,
                 "checkboxes": sec_checkboxes
             })
-
         return output_sections
    
     def extract_pdf_with_sections(self, pdf_path, sections_file):
