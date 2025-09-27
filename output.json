@@ -846,15 +846,15 @@
                             ]
                         },
                         {
-                            "label": "lron",
-                            "status": "empty",
-                            "score": 0.96,
-                            "confidence": 0.96,
+                            "label": "Iron",
+                            "status": "missing",
+                            "score": 0.0,
+                            "confidence": 0.0,
                             "position": [
-                                1256,
-                                2302,
-                                37,
-                                37
+                                0,
+                                0,
+                                0,
+                                0
                             ]
                         },
                         {
@@ -1915,7 +1915,7 @@
                             ]
                         },
                         {
-                            "label": "lrritability",
+                            "label": "Irritability",
                             "status": "empty",
                             "score": 0.89,
                             "confidence": 0.89,

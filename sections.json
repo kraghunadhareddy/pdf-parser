@@ -17,7 +17,7 @@
     {
         "section_name": "Please list all current supplements you are taking and the dosage",
         "labels": ["Fiber", "MultiVitamin", "Calcium", "Fish Oil", 
-                    "Hair/Skin/Nail", "Hormone", "lron", "Joint",
+                    "Hair/Skin/Nail", "Hormone", "Iron", "Joint",
                     "Sleep", "Sport", "Vitamin D", "Weight Loss",
                     "None"]
     },
@@ -107,7 +107,7 @@
     },
     {
         "section_name": "PSYCHIATRIC",
-        "labels": ["Anxiety",  "Depression", "Insomnia", "lrritability",
+        "labels": ["Anxiety",  "Depression", "Insomnia", "Irritability",
                     "Other"]
     },
     {

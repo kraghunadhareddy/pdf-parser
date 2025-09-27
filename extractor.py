@@ -110,6 +110,40 @@ class CheckboxExtractor:
             joined = joined.replace(' ', '')
             return joined
 
+        # Helpers for conditional I/L/l/1 matching based on expected having uppercase 'I'
+        def build_expected_masked_upper(text):
+            t = unicodedata.normalize('NFKD', text)
+            t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
+            t = t.replace('/', '').replace(' ', '').replace('-', '')
+            expected_s = []
+            i_mask = set()
+            for idx, ch in enumerate(t):
+                if ch == 'I':  # only uppercase I in expected triggers flexibility
+                    i_mask.add(idx)
+                expected_s.append(ch)
+            return ''.join(expected_s), i_mask
+
+        def flex_equal(expected_s, i_mask, candidate_s):
+            if len(expected_s) != len(candidate_s):
+                return False
+            for i, (e, c) in enumerate(zip(expected_s, candidate_s)):
+                if i in i_mask and e == 'I':
+                    if c not in ('I', 'L', 'l', '1'):
+                        return False
+                else:
+                    if e != c:
+                        return False
+            return True
+
+        def flex_contains(expected_s, i_mask, haystack_s):
+            m, n = len(expected_s), len(haystack_s)
+            if m == 0:
+                return True
+            for i in range(0, n - m + 1):
+                if flex_equal(expected_s, i_mask, haystack_s[i:i+m]):
+                    return True
+            return False
+
         # Build tokens for single-line matching
         tokens = []
         for i in range(len(ocr_data["text"])):
@@ -150,6 +184,7 @@ class CheckboxExtractor:
             first_word = normalize_text(lbl_words[0])
             last_word = normalize_text(lbl_words[-1])
             lbl_clean = clean_label_sequence(lbl_words)
+            exp_s, i_mask = build_expected_masked_upper(lbl)
             n = len(tokens)
             max_len = len(lbl_words)
             found = False
@@ -161,7 +196,7 @@ class CheckboxExtractor:
                         continue
                     if first_word in normalize_text(seq[0]["orig"]) and last_word in normalize_text(seq[-1]["orig"]):
                         seq_clean = clean_label_sequence([t["orig"] for t in seq])
-                        if lbl_clean in seq_clean:
+                        if flex_contains(exp_s, i_mask, seq_clean):
                             label_positions[lbl].append((seq[0]["x"], seq[0]["y"]))
                             found = True
             # Multi-line row-wise lookahead logic
@@ -173,7 +208,8 @@ class CheckboxExtractor:
                     norm_line = clean_label_sequence(line_text.split())
                     match_count = 0
                     for idx, w in enumerate(lbl_words):
-                        if normalize_text(w) in norm_line:
+                        wu, w_mask = build_expected_masked_upper(w)
+                        if flex_contains(wu, w_mask, norm_line):
                             match_count += 1
                         else:
                             break
@@ -198,7 +234,8 @@ class CheckboxExtractor:
                         # Check if next part of label matches
                         next_match_count = 0
                         for idx2 in range(curr_lbl_idx, len(lbl_words)):
-                            if normalize_text(lbl_words[idx2]) in norm_next:
+                            wu2, w2_mask = build_expected_masked_upper(lbl_words[idx2])
+                            if flex_contains(wu2, w2_mask, norm_next):
                                 next_match_count += 1
                             else:
                                 break
@@ -340,11 +377,54 @@ class CheckboxExtractor:
         checkbox_y_positions = sorted([cb["position"][1] for cb in checkbox_positions])
         section_regions = {}
 
+        # Helper functions for conditional matching on section names
+        import unicodedata
+        def build_expected_masked_upper(text):
+            t = unicodedata.normalize('NFKD', text)
+            t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
+            t = t.replace('/', '').replace(' ', '').replace('-', '')
+            expected_s = []
+            i_mask = set()
+            for idx, ch in enumerate(t):
+                if ch == 'I':
+                    i_mask.add(idx)
+                expected_s.append(ch)
+            return ''.join(expected_s), i_mask
+
+        def clean_line_preserve_case(text):
+            t = unicodedata.normalize('NFKD', text)
+            t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
+            t = t.replace('/', '').replace(' ', '').replace('-', '')
+            return t
+
+        def flex_equal(expected_s, i_mask, candidate_s):
+            if len(expected_s) != len(candidate_s):
+                return False
+            for i, (e, c) in enumerate(zip(expected_s, candidate_s)):
+                if i in i_mask and e == 'I':
+                    if c not in ('I', 'L', 'l', '1'):
+                        return False
+                else:
+                    if e != c:
+                        return False
+            return True
+
+        def flex_contains(expected_s, i_mask, haystack_s):
+            m, n = len(expected_s), len(haystack_s)
+            if m == 0:
+                return True
+            for i in range(0, n - m + 1):
+                if flex_equal(expected_s, i_mask, haystack_s[i:i+m]):
+                    return True
+            return False
+
         for section in sections:
             section_name = section["section_name"]
             anchor_y = None
+            exp_s, i_mask = build_expected_masked_upper(section_name)
             for line in sorted_lines:
-                if re.search(r"\b" + re.escape(section_name) + r"\b", line["text"]):
+                line_s = clean_line_preserve_case(line["text"])
+                if flex_contains(exp_s, i_mask, line_s):
                     anchor_y = line["y"]
                     print(f"[ANCHOR TEXT] '{line['text']}' matched section '{section_name}' at y={anchor_y}")
                     break
@@ -480,10 +560,12 @@ class CheckboxExtractor:
                         "confidence": 0.0,
                         "position": [0, 0, 0, 0]
                     })
-            output_sections.append({
-                "section": sec_name,
-                "checkboxes": sec_checkboxes
-            })
+            # Only add section if at least one checkbox is not 'missing'
+            if any(cb.get("status") != "missing" for cb in sec_checkboxes):
+                output_sections.append({
+                    "section": sec_name,
+                    "checkboxes": sec_checkboxes
+                })
         return output_sections
    
     def extract_pdf_with_sections(self, pdf_path, sections_file):
