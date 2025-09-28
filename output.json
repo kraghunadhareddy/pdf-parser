@@ -847,14 +847,14 @@
                         },
                         {
                             "label": "Iron",
-                            "status": "missing",
-                            "score": 0.0,
-                            "confidence": 0.0,
+                            "status": "empty",
+                            "score": 0.96,
+                            "confidence": 0.96,
                             "position": [
-                                0,
-                                0,
-                                0,
-                                0
+                                1256,
+                                2302,
+                                37,
+                                37
                             ]
                         },
                         {

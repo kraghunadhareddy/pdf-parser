@@ -199,54 +199,91 @@ class CheckboxExtractor:
                         if flex_contains(exp_s, i_mask, seq_clean):
                             label_positions[lbl].append((seq[0]["x"], seq[0]["y"]))
                             found = True
-            # Multi-line row-wise lookahead logic
+            # Multi-line lookahead (contiguous tokens, x tolerance on next lines)
             if not found:
-                tolerance = 50  # x position tolerance
+                x_tolerance = 80
+                max_lookahead = 5
                 for i, line in enumerate(lines):
-                    # Try to match the first part of the label in this line
-                    line_text = " ".join([w["text"] for w in line["words"]])
-                    norm_line = clean_label_sequence(line_text.split())
-                    match_count = 0
-                    for idx, w in enumerate(lbl_words):
-                        wu, w_mask = build_expected_masked_upper(w)
-                        if flex_contains(wu, w_mask, norm_line):
-                            match_count += 1
-                        else:
-                            break
-                    if match_count == 0:
+                    words = line["words"]
+                    if not words:
                         continue
-                    # Look ahead in next line for next part of label
-                    curr_lbl_idx = match_count
-                    curr_idx = i
-                    x_ref = line["words"][0]["x"]
-                    matched = True
-                    while curr_lbl_idx < len(lbl_words):
-                        if curr_idx + 1 >= len(lines):
-                            matched = False
-                            break
-                        next_line = lines[curr_idx + 1]
-                        next_text = " ".join([w["text"] for w in next_line["words"]])
-                        norm_next = clean_label_sequence(next_text.split())
-                        x_next = next_line["words"][0]["x"]
-                        if abs(x_next - x_ref) > tolerance:
-                            matched = False
-                            break
-                        # Check if next part of label matches
-                        next_match_count = 0
-                        for idx2 in range(curr_lbl_idx, len(lbl_words)):
-                            wu2, w2_mask = build_expected_masked_upper(lbl_words[idx2])
-                            if flex_contains(wu2, w2_mask, norm_next):
-                                next_match_count += 1
+                    # Try all possible starting tokens on this line; pick the one that matches the most leading words contiguously
+                    best_start = None
+                    best_matched_here = 0
+                    for start_idx in range(len(words)):
+                        # Match first expected word at this token
+                        matched_here = 0
+                        k = start_idx
+                        for lbl_idx in range(0, len(lbl_words)):
+                            if k >= len(words):
+                                break
+                            wu, w_mask = build_expected_masked_upper(lbl_words[lbl_idx])
+                            tok_clean = normalize_text(words[k]["text"])
+                            if flex_contains(wu, w_mask, tok_clean):
+                                matched_here += 1
+                                k += 1
                             else:
                                 break
-                        if next_match_count == 0:
-                            matched = False
+                        if matched_here > best_matched_here:
+                            best_matched_here = matched_here
+                            best_start = start_idx
+                        # Early exit if whole label fits here
+                        if matched_here == len(lbl_words):
                             break
-                        curr_lbl_idx += next_match_count
+                    if best_matched_here == 0:
+                        continue
+                    # Set starting position and x_ref from the chosen start
+                    start_x = words[best_start]["x"]
+                    start_y = words[best_start]["y"]
+                    x_ref = start_x
+                    curr_lbl_idx = best_matched_here
+                    curr_idx = i
+                    matched_all = (curr_lbl_idx == len(lbl_words))
+                    lookahead_used = 0
+                    # Continue to next lines within constraints
+                    while not matched_all and lookahead_used < max_lookahead:
+                        if curr_idx + 1 >= len(lines):
+                            break
+                        next_line = lines[curr_idx + 1]
+                        next_tokens = next_line["words"]
+                        if not next_tokens:
+                            break
+                        # Candidates within x_tolerance for the next expected word
+                        expected_word = lbl_words[curr_lbl_idx]
+                        wuN, w_maskN = build_expected_masked_upper(expected_word)
+                        candidate_indices = [idx for idx, tok in enumerate(next_tokens)
+                                             if abs(tok["x"] - x_ref) <= x_tolerance and flex_contains(wuN, w_maskN, normalize_text(tok["text"]))]
+                        if not candidate_indices:
+                            break
+                        # For each candidate, compute how many contiguous words match to the right
+                        best_line_match = 0
+                        best_line_start = None
+                        for ci in candidate_indices:
+                            matched_in_line = 0
+                            k = ci
+                            for lbl_idx in range(curr_lbl_idx, len(lbl_words)):
+                                if k >= len(next_tokens):
+                                    break
+                                wu2, w2_mask = build_expected_masked_upper(lbl_words[lbl_idx])
+                                if flex_contains(wu2, w2_mask, normalize_text(next_tokens[k]["text"])):
+                                    matched_in_line += 1
+                                    k += 1
+                                else:
+                                    break
+                            if matched_in_line > best_line_match:
+                                best_line_match = matched_in_line
+                                best_line_start = ci
+                        if best_line_match == 0:
+                            break
+                        # Advance
+                        curr_lbl_idx += best_line_match
                         curr_idx += 1
-                    if matched:
-                        label_positions[lbl].append((line["words"][0]["x"], line["words"][0]["y"]))
-                        print(f"[MULTILINE ROW LOOKAHEAD] '{lbl}' matched starting at y={line['y']}")
+                        lookahead_used += 1
+                        x_ref = next_tokens[best_line_start]["x"]
+                        matched_all = (curr_lbl_idx == len(lbl_words))
+                    if matched_all:
+                        label_positions[lbl].append((start_x, start_y))
+                        print(f"[MULTILINE LOOKAHEAD] '{lbl}' matched starting at y={start_y}")
 
         print("[LABEL POSITIONS]")
         for lbl, positions in label_positions.items():
