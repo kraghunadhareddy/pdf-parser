@@ -2,6 +2,18 @@ from pdf2image import convert_from_path
 from PIL import Image, ImageEnhance, ImageFilter
 import argparse
 import os
+import json
+
+def load_config(config_path=None):
+    cfg = {}
+    path = config_path or os.path.join(os.path.dirname(__file__), "config.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception:
+            cfg = {}
+    return cfg
 
 def preprocess_image(image):
     image = image.convert("RGB")
@@ -29,11 +41,14 @@ def main():
     parser.add_argument("--w", type=int, required=True, help="Width of region")
     parser.add_argument("--h", type=int, required=True, help="Height of region")
     parser.add_argument("--output", required=True, help="Output image path")
-    parser.add_argument("--poppler", default=r"C:\Users\raghu\Downloads\Release-25.07.0-0\poppler-25.07.0\Library\bin",
-                        help="Path to poppler bin directory")
+    parser.add_argument("--poppler", help="Path to poppler bin directory (default from config.json)")
+    parser.add_argument("--config", help="Path to config.json (optional)")
     args = parser.parse_args()
 
-    extract_template(args.pdf, args.page, args.x, args.y, args.w, args.h, args.output, args.poppler)
+    cfg = load_config(args.config)
+    poppler = args.poppler or cfg.get("poppler")
+
+    extract_template(args.pdf, args.page, args.x, args.y, args.w, args.h, args.output, poppler)
 
 if __name__ == "__main__":
     main()

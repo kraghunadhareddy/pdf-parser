@@ -11,7 +11,22 @@ from collections import defaultdict
 import pprint
 import re
 
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+def load_config(config_path=None):
+    cfg = {}
+    path = config_path or os.path.join(os.path.dirname(__file__), "config.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception:
+            cfg = {}
+    return cfg
+
+CONFIG = load_config()
+
+# Configure Tesseract if provided in config; otherwise rely on system PATH or prior configuration
+if CONFIG.get("tesseract"):
+    pytesseract.pytesseract.tesseract_cmd = CONFIG["tesseract"]
 
 class CheckboxExtractor:
     def __init__(self, poppler_path=None, ticked_template_path=None, empty_template_path=None, match_threshold=0.6):
@@ -718,24 +733,48 @@ class NpEncoder(json.JSONEncoder):
 def main():
     parser = argparse.ArgumentParser(description="PDF Checkbox Extractor with Section-Aware Label Alignment")
     parser.add_argument("--pdf", required=True, help="Path to PDF file")
-    parser.add_argument("--sections", required=True, help="Path to sections.json")
+    parser.add_argument("--sections", help="Path to sections.json (default from config.json)")
     parser.add_argument("--output", default="output.json", help="Output JSON file")
-    parser.add_argument("--ticked_template", required=True, help="Path to ticked checkbox image")
-    parser.add_argument("--empty_template", required=True, help="Path to empty checkbox image")
-    parser.add_argument("--poppler", default=r"C:\Users\raghu\Downloads\Release-25.07.0-0\poppler-25.07.0\Library\bin",
-                        help="Path to poppler bin directory")
-    parser.add_argument("--threshold", type=float, default=0.6, help="Template match threshold (0–1)")
+    parser.add_argument("--ticked_template", help="Path to ticked checkbox image (default from config.json)")
+    parser.add_argument("--empty_template", help="Path to empty checkbox image (default from config.json)")
+    parser.add_argument("--poppler", help="Path to poppler bin directory (default from config.json)")
+    parser.add_argument("--threshold", type=float, help="Template match threshold (0–1, default from config.json)")
+    parser.add_argument("--config", help="Path to config.json (optional)")
     args = parser.parse_args()
 
+    # Reload config if a custom path is provided
+    cfg = CONFIG if not args.config else load_config(args.config)
+
+    # Allow overriding Tesseract path via config flag as well
+    if cfg.get("tesseract"):
+        pytesseract.pytesseract.tesseract_cmd = cfg["tesseract"]
+
+    sections_path = args.sections or cfg.get("sections")
+    ticked_path = args.ticked_template or cfg.get("ticked_template")
+    empty_path = args.empty_template or cfg.get("empty_template")
+    poppler_path = args.poppler or cfg.get("poppler")
+    threshold = args.threshold if args.threshold is not None else cfg.get("threshold", 0.6)
+
+    # Validate required inputs now that config has been considered
+    missing = []
+    if not sections_path:
+        missing.append("--sections (or config.sections)")
+    if not ticked_path:
+        missing.append("--ticked_template (or config.ticked_template)")
+    if not empty_path:
+        missing.append("--empty_template (or config.empty_template)")
+    if missing:
+        raise SystemExit(f"Missing required inputs: {', '.join(missing)}")
+
     extractor = CheckboxExtractor(
-        poppler_path=args.poppler,
-        ticked_template_path=args.ticked_template,
-        empty_template_path=args.empty_template,
-        match_threshold=args.threshold
+        poppler_path=poppler_path,
+        ticked_template_path=ticked_path,
+        empty_template_path=empty_path,
+        match_threshold=threshold
     )
 
     print(f"Starting extraction for: {args.pdf}")
-    data = extractor.extract_pdf_with_sections(args.pdf, args.sections)
+    data = extractor.extract_pdf_with_sections(args.pdf, sections_path)
 
     print(f"Writing structured data to {args.output}")
     with open(args.output, "w", encoding="utf-8") as f:

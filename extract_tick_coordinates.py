@@ -3,6 +3,18 @@ from pdf2image import convert_from_path
 from PIL import Image, ImageEnhance, ImageFilter
 import numpy as np
 import argparse
+import os, json
+
+def load_config(config_path=None):
+    cfg = {}
+    path = config_path or os.path.join(os.path.dirname(__file__), "config.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception:
+            cfg = {}
+    return cfg
 
 def preprocess_image(image):
     image = image.convert("RGB")
@@ -50,11 +62,14 @@ def main():
     parser.add_argument("--page", type=int, default=1, help="Page number (1-based)")
     parser.add_argument("--scale", type=float, default=0.5, help="Display scale factor (0.1–1.0)")
     parser.add_argument("--box_size", type=int, default=25, help="Suggested box size for template")
-    parser.add_argument("--poppler", default=r"C:\Users\raghu\Downloads\Release-25.07.0-0\poppler-25.07.0\Library\bin",
-                        help="Path to poppler bin directory")
+    parser.add_argument("--poppler", help="Path to poppler bin directory (default from config.json)")
+    parser.add_argument("--config", help="Path to config.json (optional)")
     args = parser.parse_args()
 
-    click_to_get_coordinates(args.pdf, page_number=args.page, poppler_path=args.poppler,
+    cfg = load_config(args.config)
+    poppler = args.poppler or cfg.get("poppler")
+
+    click_to_get_coordinates(args.pdf, page_number=args.page, poppler_path=poppler,
                              scale=args.scale, box_size=args.box_size)
 
 if __name__ == "__main__":
