@@ -42,7 +42,11 @@ class CheckboxExtractor:
         self.ticked_template = cv2.imread(ticked_template_path, cv2.IMREAD_GRAYSCALE)
         self.empty_template = cv2.imread(empty_template_path, cv2.IMREAD_GRAYSCALE)
         if self.ticked_template is None or self.empty_template is None:
-            raise ValueError("❌ Failed to load one or both template images.")
+            raise ValueError(
+                "❌ Failed to load one or both template images. "
+                f"Resolved ticked='{ticked_template_path}', empty='{empty_template_path}'. "
+                "Ensure paths exist and are accessible (config paths are resolved relative to config.json)."
+            )
         self.template_size = self.ticked_template.shape[::-1]
 
     def preprocess_image(self, image):
@@ -798,6 +802,7 @@ def main():
     parser.add_argument("--poppler", help="Path to poppler bin directory (default from config.json)")
     parser.add_argument("--threshold", type=float, help="Template match threshold (0–1, default from config.json)")
     parser.add_argument("--config", help="Path to config.json (optional)")
+    parser.add_argument("--check", action="store_true", help="Only check environment/dependencies and exit")
     args = parser.parse_args()
 
     # Reload config if a custom path is provided
@@ -826,6 +831,28 @@ def main():
         missing.append("--empty_template (or config.empty_template)")
     if missing:
         raise SystemExit(f"Missing required inputs: {', '.join(missing)}")
+
+    # Optional environment check mode
+    if args.check:
+        print("[CHECK] Python packages present: pdf2image, pytesseract, opencv-python, Pillow, numpy")
+        try:
+            from pdf2image import pdfinfo_from_path  # noqa
+            import pytesseract as _pt  # noqa
+            import cv2 as _cv  # noqa
+            from PIL import Image as _im  # noqa
+            import numpy as _np  # noqa
+            print("[CHECK] Python dependencies: OK")
+        except Exception as e:
+            print(f"[CHECK] Python dependency error: {e}")
+        # External tools
+        print(f"[CHECK] Tesseract path: {pytesseract.pytesseract.tesseract_cmd}")
+        if not (pytesseract.pytesseract.tesseract_cmd and os.path.exists(str(pytesseract.pytesseract.tesseract_cmd))):
+            print("[CHECK] WARN: Tesseract not found at configured path. Ensure it's installed or on PATH.")
+        print(f"[CHECK] Poppler path: {poppler_path or '(using PATH)'}")
+        if poppler_path and not os.path.exists(poppler_path):
+            print("[CHECK] WARN: Poppler path does not exist. Use config.json or --poppler to set correctly.")
+        print("[CHECK] Done.")
+        return
 
     extractor = CheckboxExtractor(
         poppler_path=poppler_path,

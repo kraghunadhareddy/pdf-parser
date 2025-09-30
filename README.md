@@ -6,7 +6,7 @@ This project extracts checkbox, medication, supplement, and lifestyle informatio
 - Python 3.8+
 - Poppler for Windows (for PDF conversion)
 - Tesseract OCR
-- Required Python packages: `pdf2image`, `pytesseract`, `opencv-python`, `Pillow`, `numpy`
+- Python packages (see `requirements.txt`): `pdf2image`, `pytesseract`, `opencv-python`, `Pillow`, `numpy`
 - Checkbox template images: `ticked.png`, `unticked.png`
 
 ## Scripts Overview
@@ -54,6 +54,18 @@ python template_extractor.py --pdf <PDF_FILE> --coords <COORDS_FILE> --output <O
 3. Update `sections.json` with section names and labels matching the form.
 4. Configure defaults in `config.json`.
 5. Run `extractor.py` to process the PDF and output results to `output.json`.
+
+### Install dependencies
+```powershell
+.\u005cpdf-envScripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+### Check your environment
+```powershell
+python extractor.py --pdf test-intake-form.pdf --check
+```
+This validates Python packages and prints the resolved Tesseract/Poppler paths.
 
 ## Output
 - Results are written to `output.json` in structured format.
