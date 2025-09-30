@@ -730,6 +730,54 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray): return obj.tolist()
         return super().default(obj)
 
+def run_extractor_from_config(pdf_path,
+                              output_path=None,
+                              config_path=None,
+                              sections=None,
+                              ticked_template=None,
+                              empty_template=None,
+                              poppler=None,
+                              threshold=None,
+                              tesseract=None):
+    """
+    Convenience API for calling the extractor from another Python program.
+
+    - Loads defaults from config.json (or a provided config_path)
+    - Optional keyword args override config values
+    - If output_path is provided, writes JSON there; always returns the dict
+    """
+    cfg = CONFIG if not config_path else load_config(config_path)
+
+    # Allow tesseract override
+    tess_path = tesseract or cfg.get("tesseract")
+    if tess_path:
+        pytesseract.pytesseract.tesseract_cmd = tess_path
+
+    sections_path = sections or cfg.get("sections")
+    ticked_path = ticked_template or cfg.get("ticked_template")
+    empty_path = empty_template or cfg.get("empty_template")
+    poppler_path = poppler or cfg.get("poppler")
+    th = threshold if threshold is not None else cfg.get("threshold", 0.6)
+
+    missing = []
+    if not sections_path: missing.append("sections")
+    if not ticked_path: missing.append("ticked_template")
+    if not empty_path: missing.append("empty_template")
+    if missing:
+        raise ValueError(f"Missing required inputs: {', '.join(missing)}")
+
+    extractor = CheckboxExtractor(
+        poppler_path=poppler_path,
+        ticked_template_path=ticked_path,
+        empty_template_path=empty_path,
+        match_threshold=th,
+    )
+    data = extractor.extract_pdf_with_sections(pdf_path, sections_path)
+    if output_path:
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False, cls=NpEncoder)
+    return data
+
 def main():
     parser = argparse.ArgumentParser(description="PDF Checkbox Extractor with Section-Aware Label Alignment")
     parser.add_argument("--pdf", required=True, help="Path to PDF file")

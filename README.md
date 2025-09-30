@@ -16,7 +16,7 @@ This project extracts checkbox, medication, supplement, and lifestyle informatio
 
 **Usage:**
 ```sh
-python extractor.py --pdf <PDF_FILE> --sections <SECTIONS_JSON> --ticked_template <TICKED_IMG> --empty_template <EMPTY_IMG> [--output <OUTPUT_JSON>] [--poppler <POPPLER_PATH>] [--threshold <MATCH_THRESHOLD>]
+python extractor.py --pdf <PDF_FILE> [--output <OUTPUT_JSON>] [--sections <SECTIONS_JSON>] [--ticked_template <TICKED_IMG>] [--empty_template <EMPTY_IMG>] [--poppler <POPPLER_PATH>] [--threshold <MATCH_THRESHOLD>] [--config <CONFIG_JSON>]
 ```
 - Extracts structured data to `output.json`.
 - Debug images are saved as `debug_page_<N>.png`.
@@ -52,7 +52,8 @@ python template_extractor.py --pdf <PDF_FILE> --coords <COORDS_FILE> --output <O
 1. Use `extract_tick_coordinates.py` to interactively find checkbox coordinates on a sample PDF.
 2. Use `template_extractor.py` to crop and save checkbox templates.
 3. Update `sections.json` with section names and labels matching the form.
-4. Run `extractor.py` to process the PDF and output results to `output.json`.
+4. Configure defaults in `config.json`.
+5. Run `extractor.py` to process the PDF and output results to `output.json`.
 
 ## Output
 - Results are written to `output.json` in structured format.
@@ -66,3 +67,31 @@ python template_extractor.py --pdf <PDF_FILE> --coords <COORDS_FILE> --output <O
 
 ## License
 MIT
+
+## Config
+Define project defaults in `config.json` at the repo root:
+```json
+{
+	"sections": "sections.json",
+	"ticked_template": "ticked.png",
+	"empty_template": "unticked.png",
+	"poppler": "C:\\Path\\To\\poppler\\Library\\bin",
+	"threshold": 0.6,
+	"tesseract": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+}
+```
+CLI flags override config values. Use `--config` to point at an alternate file.
+
+## Programmatic API
+You can call the extractor directly from Python using the built-in helper:
+```python
+from extractor import run_extractor_from_config
+
+data = run_extractor_from_config(
+		pdf_path=r"C:\\Path\\To\\test-intake-form.pdf",
+		output_path=r"C:\\Path\\To\\output.json",          # optional
+		config_path=None,                                        # optional, defaults to repo config.json
+		threshold=0.6                                            # optional override
+)
+```
+This loads defaults from `config.json` and lets you override any value via keyword args.
