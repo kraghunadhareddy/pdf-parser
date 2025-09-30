@@ -1,1 +1,9 @@
 test-intake-form.pdf
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.Python
+*.log
+*.DS_Store
