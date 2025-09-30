@@ -13,20 +13,27 @@ import re
 
 def load_config(config_path=None):
     cfg = {}
-    path = config_path or os.path.join(os.path.dirname(__file__), "config.json")
+    base_dir = os.path.dirname(__file__)
+    path = config_path or os.path.join(base_dir, "config.json")
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
+            base_dir = os.path.dirname(os.path.abspath(path))
         except Exception:
             cfg = {}
-    return cfg
+    return cfg, base_dir
 
-CONFIG = load_config()
+def resolve_path(p, base_dir):
+    if not p:
+        return p
+    return p if os.path.isabs(p) else os.path.abspath(os.path.join(base_dir, p))
+
+CONFIG, CONFIG_BASEDIR = load_config()
 
 # Configure Tesseract if provided in config; otherwise rely on system PATH or prior configuration
 if CONFIG.get("tesseract"):
-    pytesseract.pytesseract.tesseract_cmd = CONFIG["tesseract"]
+    pytesseract.pytesseract.tesseract_cmd = resolve_path(CONFIG["tesseract"], CONFIG_BASEDIR)
 
 class CheckboxExtractor:
     def __init__(self, poppler_path=None, ticked_template_path=None, empty_template_path=None, match_threshold=0.6):
@@ -746,17 +753,20 @@ def run_extractor_from_config(pdf_path,
     - Optional keyword args override config values
     - If output_path is provided, writes JSON there; always returns the dict
     """
-    cfg = CONFIG if not config_path else load_config(config_path)
+    if config_path:
+        cfg, base_dir = load_config(config_path)
+    else:
+        cfg, base_dir = CONFIG, CONFIG_BASEDIR
 
     # Allow tesseract override
     tess_path = tesseract or cfg.get("tesseract")
     if tess_path:
-        pytesseract.pytesseract.tesseract_cmd = tess_path
+        pytesseract.pytesseract.tesseract_cmd = resolve_path(tess_path, base_dir)
 
-    sections_path = sections or cfg.get("sections")
-    ticked_path = ticked_template or cfg.get("ticked_template")
-    empty_path = empty_template or cfg.get("empty_template")
-    poppler_path = poppler or cfg.get("poppler")
+    sections_path = sections or resolve_path(cfg.get("sections"), base_dir)
+    ticked_path = ticked_template or resolve_path(cfg.get("ticked_template"), base_dir)
+    empty_path = empty_template or resolve_path(cfg.get("empty_template"), base_dir)
+    poppler_path = poppler or resolve_path(cfg.get("poppler"), base_dir)
     th = threshold if threshold is not None else cfg.get("threshold", 0.6)
 
     missing = []
@@ -791,16 +801,19 @@ def main():
     args = parser.parse_args()
 
     # Reload config if a custom path is provided
-    cfg = CONFIG if not args.config else load_config(args.config)
+    if args.config:
+        cfg, base_dir = load_config(args.config)
+    else:
+        cfg, base_dir = CONFIG, CONFIG_BASEDIR
 
     # Allow overriding Tesseract path via config flag as well
     if cfg.get("tesseract"):
-        pytesseract.pytesseract.tesseract_cmd = cfg["tesseract"]
+        pytesseract.pytesseract.tesseract_cmd = resolve_path(cfg["tesseract"], base_dir)
 
-    sections_path = args.sections or cfg.get("sections")
-    ticked_path = args.ticked_template or cfg.get("ticked_template")
-    empty_path = args.empty_template or cfg.get("empty_template")
-    poppler_path = args.poppler or cfg.get("poppler")
+    sections_path = args.sections or resolve_path(cfg.get("sections"), base_dir)
+    ticked_path = args.ticked_template or resolve_path(cfg.get("ticked_template"), base_dir)
+    empty_path = args.empty_template or resolve_path(cfg.get("empty_template"), base_dir)
+    poppler_path = args.poppler or resolve_path(cfg.get("poppler"), base_dir)
     threshold = args.threshold if args.threshold is not None else cfg.get("threshold", 0.6)
 
     # Validate required inputs now that config has been considered
