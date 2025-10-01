@@ -1,5 +1,10 @@
 import pytesseract
 from pdf2image import convert_from_path
+try:
+    from pdf2image.exceptions import PDFInfoNotInstalledError
+except Exception:
+    class PDFInfoNotInstalledError(Exception):
+        pass
 from PIL import Image, ImageEnhance, ImageFilter
 import cv2
 import numpy as np
@@ -10,6 +15,29 @@ from difflib import SequenceMatcher
 from collections import defaultdict
 import pprint
 import re
+from response_extractor import extract_responses_from_page
+import sys
+try:
+    import pypdfium2 as pdfium  # optional fallback renderer
+except Exception:
+    pdfium = None
+
+# Simple tee to duplicate stdout/stderr to a file while preserving console output
+class _Tee:
+    def __init__(self, *streams):
+        self._streams = streams
+    def write(self, data):
+        for s in self._streams:
+            try:
+                s.write(data)
+            except Exception:
+                pass
+    def flush(self):
+        for s in self._streams:
+            try:
+                s.flush()
+            except Exception:
+                pass
 
 def load_config(config_path=None):
     cfg = {}
@@ -36,7 +64,7 @@ if CONFIG.get("tesseract"):
     pytesseract.pytesseract.tesseract_cmd = resolve_path(CONFIG["tesseract"], CONFIG_BASEDIR)
 
 class CheckboxExtractor:
-    def __init__(self, poppler_path=None, ticked_template_path=None, empty_template_path=None, match_threshold=0.6):
+    def __init__(self, poppler_path=None, ticked_template_path=None, empty_template_path=None, match_threshold=0.6, artifacts_dir: str | None = None):
         self.poppler_path = poppler_path
         self.match_threshold = match_threshold
         self.ticked_template = cv2.imread(ticked_template_path, cv2.IMREAD_GRAYSCALE)
@@ -48,6 +76,13 @@ class CheckboxExtractor:
                 "Ensure paths exist and are accessible (config paths are resolved relative to config.json)."
             )
         self.template_size = self.ticked_template.shape[::-1]
+        # intermediate artifacts (debug images, crops, etc.)
+        self.artifacts_dir = artifacts_dir or os.path.join(os.getcwd(), "artifacts")
+        try:
+            os.makedirs(self.artifacts_dir, exist_ok=True)
+        except Exception as _e:
+            # Fall back to CWD if cannot create
+            self.artifacts_dir = os.getcwd()
 
     def preprocess_image(self, image):
         image = image.convert("RGB")
@@ -172,6 +207,24 @@ class CheckboxExtractor:
                 if flex_equal(expected_s, i_mask, haystack_s[i:i+m]):
                     return True
             return False
+
+        def clean_token_preserve_case(text: str):
+            t = unicodedata.normalize('NFKD', text)
+            t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
+            t = t.replace('/', '').replace(' ', '').replace('-', '')
+            return t
+
+        def clean_token_preserve_case(text):
+            t = unicodedata.normalize('NFKD', text)
+            t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
+            t = t.replace('/', '').replace(' ', '').replace('-', '')
+            return t
+
+        def clean_token_preserve_case(text):
+            t = unicodedata.normalize('NFKD', text)
+            t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
+            t = t.replace('/', '').replace('-', '')
+            return t
 
         # Build tokens for single-line matching
         tokens = []
@@ -343,106 +396,6 @@ class CheckboxExtractor:
                 print(f"  Label '{lbl}' matched at (x={pos[0]}, y={pos[1]})")
 
         return label_positions
-        ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
-        import unicodedata
-        import re
-        def normalize_text(text):
-            text = unicodedata.normalize('NFKD', text)
-            text = ''.join(c for c in text if unicodedata.category(c)[0] != 'C')
-            text = text.replace('/', '').replace(' ', '').replace('-', '')
-            text = re.sub(r'^[^a-zA-Z]+', '', text)
-            text = re.sub(r'[^a-zA-Z]+$', '', text)
-            return text
-
-        def clean_label_sequence(seq):
-            normed = [normalize_text(s) for s in seq]
-            joined = ''.join(normed)
-            joined = unicodedata.normalize('NFKD', joined)
-            joined = ''.join(c for c in joined if unicodedata.category(c)[0] != 'C')
-            joined = joined.replace(' ', '')
-            return joined
-
-        tokens = []
-        for i in range(len(ocr_data["text"])):
-            word = ocr_data["text"][i].strip()
-            if not word:
-                continue
-            norm = normalize_text(word)
-            tokens.append({
-                "text": norm,
-                "orig": word,
-                "x": ocr_data["left"][i],
-                "y": ocr_data["top"][i]
-            })
-        ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
-        label_positions = defaultdict(list)
-
-        import unicodedata
-        import re
-        import re
-        def normalize_text(text):
-            # Remove special/unprintable characters, spaces, slashes, dashes, lowercase
-            import unicodedata
-            text = unicodedata.normalize('NFKD', text)
-            text = ''.join(c for c in text if unicodedata.category(c)[0] != 'C')
-            text = text.replace('/', '').replace(' ', '').replace('-', '').lower()
-            # Strip leading/trailing non-alpha chars
-            text = re.sub(r'^[^a-zA-Z]+', '', text)
-            text = re.sub(r'[^a-zA-Z]+$', '', text)
-            return text
-
-        tokens = []
-        print("[OCR TOKENS]")
-        for i in range(len(ocr_data["text"])):
-            word = ocr_data["text"][i].strip()
-            if not word:
-                continue
-            norm = normalize_text(word)
-            print(f"  OCR token: '{word}' normalized: '{norm}' at (x={ocr_data['left'][i]}, y={ocr_data['top'][i]})")
-            tokens.append({
-                "text": norm,
-                "orig": word,
-                "x": ocr_data["left"][i],
-                "y": ocr_data["top"][i]
-            })
-
-
-        def clean_label_sequence(seq):
-            import unicodedata
-            # Normalize each word/token, join, remove spaces and non-printable chars, lowercase
-            normed = [normalize_text(s) for s in seq]
-            joined = ''.join(normed)
-            joined = unicodedata.normalize('NFKD', joined)
-            joined = ''.join(c for c in joined if unicodedata.category(c)[0] != 'C')
-            joined = joined.replace(' ', '').lower()
-            return joined
-
-        for lbl in expected_labels:
-            lbl_words = lbl.split()
-            first_word = normalize_text(lbl_words[0])
-            last_word = normalize_text(lbl_words[-1])
-            lbl_clean = clean_label_sequence(lbl_words)
-            n = len(tokens)
-            max_len = len(lbl_words)
-            for i in range(n):
-                # Only consider sequences up to max_len tokens
-                for j in range(i, min(i + max_len, n)):
-                    seq = tokens[i:j+1]
-                    if not seq:
-                        continue
-                    # Non-strict match: first/last word is substring of normalized token
-                    if first_word in normalize_text(seq[0]["orig"]) and last_word in normalize_text(seq[-1]["orig"]):
-                        seq_clean = clean_label_sequence([t["orig"] for t in seq])
-                        # Substring match: label exists in cleaned OCR token sequence
-                        if lbl_clean in seq_clean:
-                            label_positions[lbl].append((seq[0]["x"], seq[0]["y"]))
-
-        print("[LABEL POSITIONS]")
-        for lbl, positions in label_positions.items():
-            for pos in positions:
-                print(f"  Label '{lbl}' matched at (x={pos[0]}, y={pos[1]})")
-
-        return label_positions
 
     def detect_section_regions(self, pil_image, sections, label_positions, checkbox_positions, max_gap=100):
         ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
@@ -486,6 +439,12 @@ class CheckboxExtractor:
             t = t.replace('/', '').replace(' ', '').replace('-', '')
             return t
 
+        # Strict token cleaner for short headers: keep letters only (drop punctuation like ':' or '.')
+        def letters_only_token(text: str) -> str:
+            t = unicodedata.normalize('NFKD', text)
+            t = ''.join(c for c in t if c.isalpha())
+            return t
+
         def flex_equal(expected_s, i_mask, candidate_s):
             if len(expected_s) != len(candidate_s):
                 return False
@@ -512,11 +471,29 @@ class CheckboxExtractor:
             anchor_y = None
             exp_s, i_mask = build_expected_masked_upper(section_name)
             for line in sorted_lines:
-                line_s = clean_line_preserve_case(line["text"])
-                if flex_contains(exp_s, i_mask, line_s):
-                    anchor_y = line["y"]
-                    print(f"[ANCHOR TEXT] '{line['text']}' matched section '{section_name}' at y={anchor_y}")
-                    break
+                raw_text = line["text"]
+                line_s = clean_line_preserve_case(raw_text)
+                # For very short section names (<=3 letters after cleaning), require token-level equality to avoid substring hits
+                cleaned_expected = clean_line_preserve_case(section_name)
+                if len(cleaned_expected) <= 3:
+                    # For short headers, operate on per-word tokens with letters-only cleaning
+                    tokens = [letters_only_token(tok) for tok in raw_text.split()]
+                    # Use IL1-tolerant equality at token level for short headers (e.g., 'GI')
+                    exp_short, i_mask_short = build_expected_masked_upper(letters_only_token(section_name))
+                    matched_short = False
+                    for tok in tokens:
+                        if flex_equal(exp_short, i_mask_short, tok):
+                            anchor_y = line["y"]
+                            matched_short = True
+                            print(f"[ANCHOR TEXT] '{raw_text}' matched section '{section_name}' at y={anchor_y} (token flex)")
+                            break
+                    if matched_short:
+                        break
+                else:
+                    if flex_contains(exp_s, i_mask, line_s):
+                        anchor_y = line["y"]
+                        print(f"[ANCHOR TEXT] '{raw_text}' matched section '{section_name}' at y={anchor_y}")
+                        break
             if anchor_y is None:
                 print(f"[WARN] No anchor found for section '{section_name}'")
                 continue
@@ -587,7 +564,8 @@ class CheckboxExtractor:
             sec_name = sec["section_name"]
             sec_checkboxes = []
             if sec_name not in section_regions:
-                print(f"[WARN] Skipping section '{sec_name}' — no region found")
+                # Use ASCII hyphen to avoid mojibake in Windows PowerShell logs
+                print(f"[WARN] Skipping section '{sec_name}' - no region found")
                 continue
             region = section_regions[sec_name]
             section_boxes = self.filter_checkboxes_in_region(checkboxes, region)
@@ -664,15 +642,38 @@ class CheckboxExtractor:
             sections = json.load(f)
 
         structured_data = {"pages": []}
-        pages = convert_from_path(pdf_path, dpi=300, poppler_path=self.poppler_path)
-        print(f"Loaded {len(pages)} pages from PDF: {pdf_path}")
+        pages = None
+        try:
+            pages = convert_from_path(pdf_path, dpi=300, poppler_path=self.poppler_path)
+            print(f"Loaded {len(pages)} pages from PDF: {pdf_path}")
+        except (PDFInfoNotInstalledError, FileNotFoundError) as e:
+            print(f"[WARN] Poppler/pdf2image path issue: {e}")
+            if pdfium is None:
+                raise
+            # Fallback: render with pypdfium2 at 300 DPI
+            print("[INFO] Falling back to pypdfium2 renderer at 300 DPI")
+            scale = 300.0 / 72.0
+            try:
+                doc = pdfium.PdfDocument(pdf_path)
+                pages = []
+                for i in range(len(doc)):
+                    page = doc[i]
+                    bitmap = page.render(scale=scale)
+                    img = bitmap.to_pil()
+                    pages.append(img)
+                print(f"Loaded {len(pages)} pages via pypdfium2: {pdf_path}")
+            except Exception as e2:
+                print(f"[ERROR] pypdfium2 fallback failed: {e2}")
+                raise
 
         for page_number, page_image in enumerate(pages, start=1):
             print(f"Processing page {page_number}")
             processed_img = self.preprocess_image(page_image)
             checkboxes, raw_img = self.detect_checkboxes(processed_img)
 
-            all_labels = [lbl for sec in sections for lbl in sec["labels"]]
+            # Only collect labels from sections that actually define them
+            label_sections = [sec for sec in sections if isinstance(sec.get("labels"), list) and sec.get("labels")]
+            all_labels = [lbl for sec in label_sections for lbl in sec["labels"]]
             label_positions = self.get_label_positions(processed_img, all_labels)
             section_regions = self.detect_section_regions(processed_img, sections, label_positions, checkboxes)
 
@@ -687,7 +688,7 @@ class CheckboxExtractor:
                 #dx = abs(cb_x - lx)
                 #print(f"Label '{lbl}' -> Closest checkbox at (x={cb_x}, y={cb_y}) | Delta-x={dx}, Delta-y={dy}")
 
-            for section in sections:
+            for section in label_sections:
                 sec_name = section["section_name"]
                 if sec_name not in section_regions:
                     continue
@@ -711,14 +712,18 @@ class CheckboxExtractor:
                     print(f"[LABEL -> CHECKBOX] Section '{sec_name}' | Label '{lbl}' -> Closest checkbox at (x={cb_x}, y={cb_y}) | Delta-x={dx}, Delta-y={dy}")
 
             sections_data = self.assign_checkboxes_sectionwise(
-                checkboxes, sections, label_positions, section_regions
+                checkboxes, label_sections, label_positions, section_regions
             )
+
+            # Extract free-text responses for sections that define "questions"
+            responses_data = extract_responses_from_page(processed_img, sections, section_regions, artifacts_dir=self.artifacts_dir)
 
             self.annotate_debug_image(raw_img, sections_data, label_positions, page_number, section_regions)
 
             structured_data["pages"].append({
                 "page_number": page_number,
-                "sections": sections_data
+                "sections": sections_data,
+                "responses": responses_data
             })
 
         print("[FINAL STRUCTURED DATA]")
@@ -758,7 +763,11 @@ class CheckboxExtractor:
                         else:
                             print(f"[WARN] Malformed label position for '{label}': {pos}")
 
-        cv2.imwrite(f"debug_page_{page_number}.png", img)
+        out_path = os.path.join(self.artifacts_dir, f"debug_page_{page_number}.png")
+        try:
+            cv2.imwrite(out_path, img)
+        except Exception as _e:
+            cv2.imwrite(f"debug_page_{page_number}.png", img)
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -775,7 +784,8 @@ def run_extractor_from_config(pdf_path,
                               empty_template=None,
                               poppler=None,
                               threshold=None,
-                              tesseract=None):
+                              tesseract=None,
+                              artifacts=None):
     """
     Convenience API for calling the extractor from another Python program.
 
@@ -798,6 +808,7 @@ def run_extractor_from_config(pdf_path,
     empty_path = empty_template or resolve_path(cfg.get("empty_template"), base_dir)
     poppler_path = poppler or resolve_path(cfg.get("poppler"), base_dir)
     th = threshold if threshold is not None else cfg.get("threshold", 0.6)
+    artifacts_dir = artifacts or resolve_path(cfg.get("artifacts"), base_dir) or os.path.join(os.getcwd(), "artifacts")
 
     missing = []
     if not sections_path: missing.append("sections")
@@ -811,6 +822,7 @@ def run_extractor_from_config(pdf_path,
         ticked_template_path=ticked_path,
         empty_template_path=empty_path,
         match_threshold=th,
+        artifacts_dir=artifacts_dir,
     )
     data = extractor.extract_pdf_with_sections(pdf_path, sections_path)
     if output_path:
@@ -828,6 +840,7 @@ def main():
     parser.add_argument("--poppler", help="Path to poppler bin directory (default from config.json)")
     parser.add_argument("--threshold", type=float, help="Template match threshold (0–1, default from config.json)")
     parser.add_argument("--config", help="Path to config.json (optional)")
+    parser.add_argument("--artifacts", help="Directory for intermediate artifacts (debug images, crops). Defaults to 'artifacts' in CWD or config.artifacts")
     parser.add_argument("--check", action="store_true", help="Only check environment/dependencies and exit")
     args = parser.parse_args()
 
@@ -846,6 +859,7 @@ def main():
     empty_path = args.empty_template or resolve_path(cfg.get("empty_template"), base_dir)
     poppler_path = args.poppler or resolve_path(cfg.get("poppler"), base_dir)
     threshold = args.threshold if args.threshold is not None else cfg.get("threshold", 0.6)
+    artifacts_dir = args.artifacts or resolve_path(cfg.get("artifacts"), base_dir) or os.path.join(os.getcwd(), "artifacts")
 
     # Validate required inputs now that config has been considered
     missing = []
@@ -880,11 +894,13 @@ def main():
         print("[CHECK] Done.")
         return
 
+    # Print logs to stdout/stderr only; let the caller redirect to a file if desired
     extractor = CheckboxExtractor(
         poppler_path=poppler_path,
         ticked_template_path=ticked_path,
         empty_template_path=empty_path,
-        match_threshold=threshold
+        match_threshold=threshold,
+        artifacts_dir=artifacts_dir
     )
 
     print(f"Starting extraction for: {args.pdf}")

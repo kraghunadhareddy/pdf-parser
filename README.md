@@ -72,6 +72,25 @@ This validates Python packages and prints the resolved Tesseract/Poppler paths.
 - Debug images: `debug_page_<N>.png`
 - Logs: `log.txt`, `page <N> log.txt`
 
+## Regression tests
+We ship a lightweight regression harness to keep extraction stable across changes.
+
+What it does:
+- Copies PDFs from `test-inputs/` to `artifacts/test-cases/inputs/` on first run.
+- Runs the extractor for each input and writes fresh outputs to `artifacts/test-cases/outputs/`.
+- Looks for goldens in `artifacts/test-cases/goldens/` named `output_<input_basename>.json`.
+- If a golden is missing, it seeds one from the current output.
+- On subsequent runs, it compares outputs vs goldens and reports PASS/FAIL.
+
+Run it (PowerShell):
+```powershell
+./pdf-env/Scripts/python.exe run_regression.py 2>&1 | Tee-Object -FilePath artifacts/log_regression.txt
+```
+
+Updating goldens intentionally:
+- Delete the specific golden under `artifacts/test-cases/goldens/output_<name>.json` and re-run the harness to reseed, or
+- Overwrite it manually with a vetted output file.
+
 ## Troubleshooting
 - Ensure Poppler and Tesseract paths are set correctly for your OS.
 - Use debug images and logs to troubleshoot extraction issues.

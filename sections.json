@@ -113,5 +113,15 @@
     {
         "section_name": "ENDOCRINE",
         "labels": ["Excessive Thirst",  "Hot/Cold Intolerance", "Other"]
+    },
+    {
+        "section_name": "PREGNANCY HISTORY/PREVENTATIVE CARE",
+        "questions": [
+            "Are you currently, or do you think you might be pregnant?",
+            "Date of last menstrual period?",
+            "# of Pregnancies",
+            "Miscarriages",
+            "Live Births"
+        ]
     }
 ]

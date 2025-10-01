@@ -3,3 +3,4 @@ pytesseract
 opencv-python
 Pillow
 numpy
+pypdfium2==4.30.0

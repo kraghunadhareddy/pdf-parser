@@ -1,3 +1,11 @@
+# Local artifacts and debug outputs
+artifacts/
+*.png
+log*.txt
+output*.json
+
+# Virtual environment
+pdf-env/
 test-intake-form.pdf
 __pycache__/
 *.py[cod]
@@ -7,3 +15,6 @@ __pycache__/
 .Python
 *.log
 *.DS_Store
+
+# Test input PDFs (do not commit local samples)
+test-inputs/
