@@ -123,5 +123,16 @@
             "Miscarriages",
             "Live Births"
         ]
+    },
+    {
+        "section_name": "Next of Kin",
+        "questions": [
+            "Name:",
+            "Relationship:",
+            "Phone Number:",
+            "PREFERRED PHARMACY & LOCATION:",
+            "Primary reason for visit:",
+            "How did you hear about Balance Hormone Center?"
+        ]
     }
 ]

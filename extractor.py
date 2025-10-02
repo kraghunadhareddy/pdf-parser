@@ -11,12 +11,10 @@ import numpy as np
 import json
 import os
 import argparse
-from difflib import SequenceMatcher
 from collections import defaultdict
 import pprint
 import re
 from response_extractor import extract_responses_from_page
-import sys
 try:
     import pypdfium2 as pdfium  # optional fallback renderer
 except Exception:

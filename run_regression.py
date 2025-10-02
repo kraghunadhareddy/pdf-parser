@@ -36,7 +36,25 @@ def run_one(pdf_path: str, out_json_path: str):
     return data
 
 
-def compare_json(golden_path: str, new_path: str) -> Tuple[bool, str]:
+def _normalize_for_compare(obj: dict, ignore_responses: bool) -> dict:
+    if not isinstance(obj, dict):
+        return obj
+    if ignore_responses and "pages" in obj and isinstance(obj["pages"], list):
+        pages = []
+        for p in obj["pages"]:
+            if isinstance(p, dict):
+                q = dict(p)
+                # Drop responses when comparing if requested
+                q.pop("responses", None)
+                pages.append(q)
+            else:
+                pages.append(p)
+        obj = dict(obj)
+        obj["pages"] = pages
+    return obj
+
+
+def compare_json(golden_path: str, new_path: str, ignore_responses: bool = False) -> Tuple[bool, str]:
     try:
         with open(golden_path, "r", encoding="utf-8") as f:
             g = json.load(f)
@@ -44,6 +62,10 @@ def compare_json(golden_path: str, new_path: str) -> Tuple[bool, str]:
             n = json.load(f)
     except Exception as e:
         return False, f"Failed to load JSON: {e}"
+
+    if ignore_responses:
+        g = _normalize_for_compare(g, ignore_responses=True)
+        n = _normalize_for_compare(n, ignore_responses=True)
 
     if g == n:
         return True, "OK"
@@ -55,6 +77,7 @@ def main():
     parser.add_argument("--no-seed", action="store_true", help="Do not seed missing goldens; treat missing goldens as warnings and skip compare")
     parser.add_argument("--update", action="store_true", help="Overwrite goldens with current outputs (use with care)")
     parser.add_argument("--prune", action="store_true", help="Delete golden files that have no corresponding input PDF")
+    parser.add_argument("--ignore-responses", action="store_true", help="Ignore 'responses' when comparing JSON (useful when responses format changes)")
     args = parser.parse_args()
 
     repo_root = os.path.dirname(os.path.abspath(__file__))
@@ -125,9 +148,10 @@ def main():
             shutil.copy2(out_json, golden_expected)
             golden_path = golden_expected
             print(f"[REG][UPDATE] Overwrote golden for {name}: {os.path.relpath(golden_expected, repo_root)}")
-        ok, msg = compare_json(golden_path, out_json)
+        ok, msg = compare_json(golden_path, out_json, ignore_responses=args.ignore_responses)
         if ok:
-            print(f"[REG][PASS] {name}")
+            note = " (ignoring responses)" if args.ignore_responses else ""
+            print(f"[REG][PASS] {name}{note}")
         else:
             failures.append((name, msg, golden_path, out_json))
             print(f"[REG][FAIL] {name}: {msg}")
