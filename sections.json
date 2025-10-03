@@ -134,5 +134,73 @@
             "Primary reason for visit:",
             "How did you hear about Balance Hormone Center?"
         ]
+    },
+    {
+        "section_name": "Female Patient Information",
+        "questions": [
+            "First Name",
+            "Last Name",
+            "Date of Birth",
+            "Home Address:",
+            "City:",
+            "State:",
+            "Zip Code:",
+            "Email:",
+            "Cell Phone:",
+            "Primary Language:",
+            "Marital Status",
+            "Sexual Orientation:",
+            "If Other, Please Elaborate:",
+            "As a convenience to our patients, we offer appointment reminders through phone calls and text messages. Would you like to be set up on automatic text reminders?",
+            "If yes, who is your cell phone provider?"
+        ]
+    },
+    {
+        "section_name": "Sleep",
+        "questions":[
+            "Sleep Quality",
+            "How often do you dream"
+        ]
+    },
+    {
+        "section_name": "OVER THE LAST 2 WEEKS, HOW OFTEN HAVE YOU BEEN BOTHERED BY THE FOLLOWING PROBLEMS?",
+        "questions":[
+            "1. Little interest or pleasure in doing activities.",
+            "2. Feeling down, depressed or hopeless."
+        ]
+    },
+    {
+        "section_name": "PREVENTATIVE CARE",
+        "questions":[
+            "Last Mammogram ______ Abnormal?",
+            "Any history of abnormal mammogram(s)?",
+            "Last Pap Smear ______ Abnormal?",
+            "Any history of abnormal Pap Smear?"
+        ]
+    },
+    {
+        "section_name": "FAMILY HISTORY",
+        "questions": [ 
+            "Father Age",
+            "Medical Conditions",
+            "Mother Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Maternal Grandfather Age",
+            "Medical Conditions",
+            "Maternal Grandmother Age",
+            "Medical Conditions",
+            "Paternal Grandfather Age",
+            "Medical Conditions",
+            "Paternal Grandmother Age",
+            "Medical Conditions"
+        ]
     }
 ]

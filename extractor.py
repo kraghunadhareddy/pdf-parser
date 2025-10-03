@@ -15,6 +15,20 @@ from collections import defaultdict
 import pprint
 import re
 from response_extractor import extract_responses_from_page
+from constants import (
+    ANCHOR_OFFSET_PX,
+    RENDER_DPI,
+    TEMPLATE_THRESHOLD_DEFAULT,
+    DEDUPE_MAX_DIST,
+    LABEL_MULTILINE_BASE_X_TOLERANCE,
+    LABEL_MULTILINE_MAX_LOOKAHEAD,
+    LABEL_ROW_GAP_PX,
+    LABEL_CB_ASSIGN_MAX_DELTA_Y,
+    SECTION_CB_MAX_GAP_PX,
+    SECTION_X1,
+    SECTION_X2,
+    SECTION_BOTTOM_BUFFER_PX,
+)
 try:
     import pypdfium2 as pdfium  # optional fallback renderer
 except Exception:
@@ -105,7 +119,7 @@ class CheckboxExtractor:
             })
         return matches
 
-    def deduplicate_matches(self, ticked_matches, empty_matches, max_dist=5):
+    def deduplicate_matches(self, ticked_matches, empty_matches, max_dist=DEDUPE_MAX_DIST):
         all_boxes = []
 
         # Tag status
@@ -139,11 +153,8 @@ class CheckboxExtractor:
         ticked_matches = self.match_template(gray, self.ticked_template, "ticked")
         empty_matches = self.match_template(gray, self.empty_template, "empty")
         boxes = self.deduplicate_matches(ticked_matches, empty_matches)
-        
-        print("[CHECKBOX POSITIONS]")
-        for i, box in enumerate(boxes):
-            print(f"  Checkbox {i}: {box}, type={type(box)}")
 
+        # Summary only; detailed checkbox dumps removed
         print(f"Template matches: {len(boxes)} checkboxes detected")
         return boxes, img
 
@@ -238,7 +249,7 @@ class CheckboxExtractor:
                 "y": ocr_data["top"][i]
             })
 
-        # Build lines for multi-line matching
+    # Build lines for multi-line matching
         lines = []
         for i in range(len(ocr_data["text"])):
             word = ocr_data["text"][i].strip()
@@ -282,8 +293,8 @@ class CheckboxExtractor:
             # Multi-line lookahead (contiguous tokens, x tolerance on next lines)
             if not found:
                 # Slightly wider tolerance helps wrapped paragraphs with indent/outdent
-                base_x_tolerance = 160  # was 80 -> 120 -> now 160 for wider wrap tolerance
-                max_lookahead = 5
+                base_x_tolerance = LABEL_MULTILINE_BASE_X_TOLERANCE
+                max_lookahead = LABEL_MULTILINE_MAX_LOOKAHEAD
 
                 def try_multiline(lbl_words_seq):
                     for i, line in enumerate(lines):
@@ -376,7 +387,6 @@ class CheckboxExtractor:
                 pos = try_multiline(lbl_words)
                 if pos is not None:
                     label_positions[lbl].append(pos)
-                    print(f"[MULTILINE LOOKAHEAD] '{lbl}' matched starting at y={pos[1]}")
                 else:
                     # Fallback: allow starting match from later words if early words were mis-OCR'd
                     # For long labels, skipping up to 4 words reduces sensitivity to noisy line starts.
@@ -385,17 +395,13 @@ class CheckboxExtractor:
                         pos2 = try_multiline(suffix)
                         if pos2 is not None:
                             label_positions[lbl].append(pos2)
-                            print(f"[MULTILINE LOOKAHEAD-FALLBACK] '{lbl}' matched (skipped first {skip} words) at y={pos2[1]}")
                             break
 
-        print("[LABEL POSITIONS]")
-        for lbl, positions in label_positions.items():
-            for pos in positions:
-                print(f"  Label '{lbl}' matched at (x={pos[0]}, y={pos[1]})")
+        # Detailed label position dumps removed
 
         return label_positions
 
-    def detect_section_regions(self, pil_image, sections, label_positions, checkbox_positions, max_gap=100):
+    def detect_section_regions(self, pil_image, sections, label_positions, checkbox_positions, max_gap=SECTION_CB_MAX_GAP_PX):
         ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
         lines = {}
         for i in range(len(ocr_data["text"])):
@@ -483,14 +489,12 @@ class CheckboxExtractor:
                         if flex_equal(exp_short, i_mask_short, tok):
                             anchor_y = line["y"]
                             matched_short = True
-                            print(f"[ANCHOR TEXT] '{raw_text}' matched section '{section_name}' at y={anchor_y} (token flex)")
                             break
                     if matched_short:
                         break
                 else:
                     if flex_contains(exp_s, i_mask, line_s):
                         anchor_y = line["y"]
-                        print(f"[ANCHOR TEXT] '{raw_text}' matched section '{section_name}' at y={anchor_y}")
                         break
             if anchor_y is None:
                 print(f"[WARN] No anchor found for section '{section_name}'")
@@ -509,19 +513,19 @@ class CheckboxExtractor:
                     break
 
             section_regions[section_name] = {
-                "x1": 0,
+                "x1": SECTION_X1,
                 "y1": anchor_y,
-                "x2": 2000,
-                "y2": y2 + 50  # small buffer
+                "x2": SECTION_X2,
+                "y2": y2 + SECTION_BOTTOM_BUFFER_PX  # small buffer
             }
-            print(f"[MATCH] Section '{section_name}' anchored at y={anchor_y}, extended to y={y2 + 50}")
+            # Section region computed; verbose log removed
 
         return section_regions
 
     def filter_checkboxes_in_region(self, checkboxes, region):
         return [box for box in checkboxes if region["y1"] <= box["position"][1] <= region["y2"]]
 
-    def cluster_checkboxes_by_rows(self, checkboxes, gap_threshold=50):
+    def cluster_checkboxes_by_rows(self, checkboxes, gap_threshold=LABEL_ROW_GAP_PX):
         sorted_boxes = sorted(checkboxes, key=lambda b: b["position"][1])
         rows = []
         current_row = []
@@ -550,8 +554,7 @@ class CheckboxExtractor:
 
         return rows
 
-    def assign_checkboxes_sectionwise(self, checkboxes, sections, label_positions, section_regions,
-                                    column_tolerance=100, min_row_gap=60):
+    def assign_checkboxes_sectionwise(self, checkboxes, sections, label_positions, section_regions):
         output_sections = []
 
         output_sections = []
@@ -566,6 +569,8 @@ class CheckboxExtractor:
                 print(f"[WARN] Skipping section '{sec_name}' - no region found")
                 continue
             region = section_regions[sec_name]
+            # Apply post-anchor offset for labels to avoid consuming header line
+            y1_effective = region["y1"] + ANCHOR_OFFSET_PX
             section_boxes = self.filter_checkboxes_in_region(checkboxes, region)
             rows = self.cluster_checkboxes_by_rows(section_boxes)
             for lbl in sec["labels"]:
@@ -582,8 +587,8 @@ class CheckboxExtractor:
                     continue
                 for pos in label_positions[lbl]:
                     lx, ly = pos
-                    # Only consider labels within section bounds
-                    if not (region["y1"] <= ly <= region["y2"]):
+                    # Only consider labels within section bounds, enforcing post-anchor offset
+                    if not (y1_effective <= ly <= region["y2"]):
                         continue
                     # Find closest checkbox in section
                     best_distance = None
@@ -601,7 +606,7 @@ class CheckboxExtractor:
                         best_row = next((row for row in rows if closest_box in row["boxes"]), None)
                         delta_y = abs(best_row["y"] - ly) if best_row else None
                         box_id = id(closest_box)
-                        if best_row is None or delta_y > 60:
+                        if best_row is None or delta_y > LABEL_CB_ASSIGN_MAX_DELTA_Y:
                             continue
                         elif box_id in used_boxes:
                             continue
@@ -642,15 +647,15 @@ class CheckboxExtractor:
         structured_data = {"pages": []}
         pages = None
         try:
-            pages = convert_from_path(pdf_path, dpi=300, poppler_path=self.poppler_path)
+            pages = convert_from_path(pdf_path, dpi=RENDER_DPI, poppler_path=self.poppler_path)
             print(f"Loaded {len(pages)} pages from PDF: {pdf_path}")
         except (PDFInfoNotInstalledError, FileNotFoundError) as e:
             print(f"[WARN] Poppler/pdf2image path issue: {e}")
             if pdfium is None:
                 raise
             # Fallback: render with pypdfium2 at 300 DPI
-            print("[INFO] Falling back to pypdfium2 renderer at 300 DPI")
-            scale = 300.0 / 72.0
+            print(f"[INFO] Falling back to pypdfium2 renderer at {RENDER_DPI} DPI")
+            scale = float(RENDER_DPI) / 72.0
             try:
                 doc = pdfium.PdfDocument(pdf_path)
                 pages = []
@@ -675,39 +680,7 @@ class CheckboxExtractor:
             label_positions = self.get_label_positions(processed_img, all_labels)
             section_regions = self.detect_section_regions(processed_img, sections, label_positions, checkboxes)
 
-            #print("[LABEL -> CHECKBOX DISTANCES]")
-            #for lbl, (lx, ly) in label_positions.items():
-                #if not checkboxes:
-                    #print(f"[WARN] No checkboxes detected on page {page_number}, skipping distance calc for label '{lbl}'")
-                    #continue
-                #closest = min(checkboxes, key=lambda cb: abs(cb['position'][1] - ly) + abs(cb['position'][0] - lx))
-                #cb_x, cb_y = closest['position'][0], closest['position'][1]
-                #dy = abs(cb_y - ly)
-                #dx = abs(cb_x - lx)
-                #print(f"Label '{lbl}' -> Closest checkbox at (x={cb_x}, y={cb_y}) | Delta-x={dx}, Delta-y={dy}")
-
-            for section in label_sections:
-                sec_name = section["section_name"]
-                if sec_name not in section_regions:
-                    continue
-                region = section_regions[sec_name]
-                for lbl in section["labels"]:
-                    if lbl not in label_positions:
-                        continue
-                    for pos in label_positions[lbl]:
-                        lx, ly = pos
-                    if not (region["y1"] <= ly <= region["y2"]):
-                        print(f"[SKIP] Label '{lbl}' at y={ly} is outside section '{sec_name}' bounds ({region['y1']}–{region['y2']})")
-                        continue
-                    section_boxes = self.filter_checkboxes_in_region(checkboxes, region)
-                    if not section_boxes:
-                        print(f"[SKIP] No checkboxes in section '{sec_name}' for label '{lbl}'")
-                        continue
-                    closest = min(section_boxes, key=lambda cb: abs(cb['position'][1] - ly) + abs(cb['position'][0] - lx))
-                    cb_x, cb_y = closest['position'][0], closest['position'][1]
-                    dy = abs(cb_y - ly)
-                    dx = abs(cb_x - lx)
-                    print(f"[LABEL -> CHECKBOX] Section '{sec_name}' | Label '{lbl}' -> Closest checkbox at (x={cb_x}, y={cb_y}) | Delta-x={dx}, Delta-y={dy}")
+            # Per-label diagnostics removed to reduce verbosity
 
             sections_data = self.assign_checkboxes_sectionwise(
                 checkboxes, label_sections, label_positions, section_regions
@@ -724,8 +697,7 @@ class CheckboxExtractor:
                 "responses": responses_data
             })
 
-        print("[FINAL STRUCTURED DATA]")
-        pprint.pprint(structured_data)
+        # Final structured data dump removed
 
         return structured_data
 

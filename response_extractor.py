@@ -1,6 +1,7 @@
 import pytesseract
 import unicodedata
 from collections import defaultdict
+from constants import ANCHOR_OFFSET_PX, LABEL_MULTILINE_BASE_X_TOLERANCE, LABEL_MULTILINE_MAX_LOOKAHEAD
 
 
 # -----------------------------
@@ -32,7 +33,8 @@ def _flex_equal_upper(expected_s: str, i_mask: set[int], candidate_s: str) -> bo
         return False
     for i, (e, c) in enumerate(zip(expected_s, candidate_s)):
         if i in i_mask and e == 'I':
-            if c not in ('I', 'L', '1'):
+            # Parity with label logic: accept I/L/l/1 when expected has uppercase 'I'
+            if c not in ('I', 'L', 'l', '1'):
                 return False
         else:
             if e != c.upper():
@@ -141,33 +143,17 @@ def _match_section_anchors(pil_image, sections: list[dict]):
                 for tok in tokens:
                     if _flex_equal_upper(exp_short, i_mask_short, tok):
                         anchor_y = line["y"]
-                        print(f"[ANCHOR TEXT] '{raw}' matched section '{name}' at y={anchor_y} (token flex)")
+                        # anchor matched (token flex) – verbose log removed
                         break
                 if anchor_y is not None:
                     break
             else:
                 if _flex_contains_upper(exp_s, i_mask, line_s):
                     anchor_y = line["y"]
-                    print(f"[ANCHOR TEXT] '{raw}' matched section '{name}' at y={anchor_y}")
+                    # anchor matched – verbose log removed
                     break
         if anchor_y is None:
             print(f"[WARN] No anchor found for section '{name}'")
-            # Punctuation-focused near-match debug: print lines whose letters-only content contains expected letters-only
-            exp_letters = _letters_only_upper(name)
-            near_hits = []
-            for line in sorted_lines:
-                letters_join = _letters_only_upper(line["text"]) if line.get("text") else ''
-                if exp_letters and letters_join and exp_letters in letters_join:
-                    near_hits.append(line)
-                    if len(near_hits) >= 3:
-                        break
-            for nh in near_hits:
-                # Show original tokens and their letters-only forms to spot punctuation drops
-                raw = nh["text"]
-                toks = raw.split()
-                mapped = [f"{t} -> {_letters_only_upper(t)}" for t in toks[:12]]
-                print(f"[ANCHOR-NEAR] '{name}' letters-only='{exp_letters}' near line y={nh['y']} raw='{raw}'")
-                print(f"[ANCHOR-NEAR] tokens: {', '.join(mapped)}")
         else:
             anchors[name] = anchor_y
     return anchors
@@ -258,8 +244,8 @@ def _match_questions_like_labels(pil_image, questions: list[str]):
                 break
         return best_start, best_matched_here
 
-    base_x_tolerance = 160
-    max_lookahead = 5
+    base_x_tolerance = LABEL_MULTILINE_BASE_X_TOLERANCE
+    max_lookahead = LABEL_MULTILINE_MAX_LOOKAHEAD
 
     def try_multiline(lbl_words_seq):
         for i, line in enumerate(lines):
@@ -285,70 +271,94 @@ def _match_questions_like_labels(pil_image, questions: list[str]):
                 "tokens": [t["text"] for t in words[best_start: best_start + matched_here]]
             }]
             while not matched_all and lookahead_used < max_lookahead:
-                # Find the next OCR line with strictly greater y (skip same-y siblings)
+                # Find the first y that is strictly greater than current, then consider ALL lines with that same y
                 j = curr_idx + 1
                 curr_y = lines[curr_idx]["y"] if curr_idx < len(lines) else None
                 while j < len(lines) and curr_y is not None and lines[j]["y"] <= curr_y:
                     j += 1
                 if j >= len(lines):
                     break
-                next_line = lines[j]
-                next_tokens = next_line["words"]
-                if not next_tokens:
-                    break
+                next_y = lines[j]["y"]
+                # Collect sibling lines sharing the same y value
+                group_indices = []
+                kidx = j
+                while kidx < len(lines) and lines[kidx]["y"] == next_y:
+                    group_indices.append(kidx)
+                    kidx += 1
+
                 expected_word = lbl_words_seq[curr_lbl_idx]
                 wuN, w_maskN = _build_expected_masked_upper(expected_word)
-                # For the first expected word on the next line, require startswith match first within x tolerance
-                candidate_indices = [idx for idx, tok in enumerate(next_tokens)
-                                     if abs(tok["x"] - x_ref) <= base_x_tolerance and _flex_startswith_upper(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
-                if not candidate_indices:
-                    # Relax to startswith anywhere on the line
-                    candidate_indices = [idx for idx, tok in enumerate(next_tokens)
-                                         if _flex_startswith_upper(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
-                if not candidate_indices:
-                    # As a last resort, allow contains (substring) within x tolerance
-                    candidate_indices = [idx for idx, tok in enumerate(next_tokens)
-                                         if abs(tok["x"] - x_ref) <= base_x_tolerance and _flex_contains_upper(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
-                if not candidate_indices:
+
+                best_line_overall_match = 0
+                best_line_overall_start = None
+                best_line_overall_idx = None
+                best_line_overall_segtoks = None
+
+                # Evaluate each sibling line at this y and pick the best continuation
+                for li in group_indices:
+                    line_tokens = lines[li]["words"]
+                    if not line_tokens:
+                        continue
+                    # 1) Prefer startswith matches within x tolerance
+                    candidate_indices = [idx for idx, tok in enumerate(line_tokens)
+                                         if abs(tok["x"] - x_ref) <= base_x_tolerance and _flex_startswith_upper(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
+                    # 2) Relax to startswith anywhere on the line
+                    if not candidate_indices:
+                        candidate_indices = [idx for idx, tok in enumerate(line_tokens)
+                                             if _flex_startswith_upper(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
+                    # 3) Last resort: contains within x tolerance
+                    if not candidate_indices:
+                        candidate_indices = [idx for idx, tok in enumerate(line_tokens)
+                                             if abs(tok["x"] - x_ref) <= base_x_tolerance and _flex_contains_upper(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
+                    if not candidate_indices:
+                        continue
+
+                    # For each candidate start on this line, compute how many expected words we can match contiguously
+                    best_line_match = 0
+                    best_line_start = None
+                    best_line_segtoks = None
+                    for ci in candidate_indices:
+                        matched_in_line = 0
+                        k = ci
+                        while k < len(line_tokens) and (curr_lbl_idx + matched_in_line) < len(lbl_words_seq):
+                            wu2, w2_mask = _build_expected_masked_upper(lbl_words_seq[curr_lbl_idx + matched_in_line])
+                            if matched_in_line == 0:
+                                ok2 = _flex_startswith_upper(wu2, w2_mask, _ocr_norm_preserve_punct_upper(line_tokens[k]["text"]))
+                            else:
+                                ok2 = _flex_contains_upper(wu2, w2_mask, _ocr_norm_preserve_punct_upper(line_tokens[k]["text"]))
+                            if ok2:
+                                matched_in_line += 1
+                                k += 1
+                            else:
+                                break
+                        if matched_in_line > best_line_match:
+                            best_line_match = matched_in_line
+                            best_line_start = ci
+                            best_line_segtoks = line_tokens[best_line_start: best_line_start + best_line_match]
+
+                    if best_line_match > best_line_overall_match:
+                        best_line_overall_match = best_line_match
+                        best_line_overall_start = best_line_start
+                        best_line_overall_idx = li
+                        best_line_overall_segtoks = best_line_segtoks
+
+                # If none of the sibling lines at this y produced a continuation, stop
+                if best_line_overall_match == 0 or best_line_overall_idx is None or best_line_overall_segtoks is None:
                     break
-                # pick candidate that matches the most on this line
-                best_line_match = 0
-                best_line_start = None
-                for ci in candidate_indices:
-                    matched_in_line = 0
-                    k = ci
-                    for lbl_idx in range(curr_lbl_idx, len(lbl_words_seq)):
-                        if k >= len(next_tokens):
-                            break
-                        wu2, w2_mask = _build_expected_masked_upper(lbl_words_seq[lbl_idx])
-                        # Startswith for the first token on this line; contains is fine for subsequent ones
-                        if lbl_idx == curr_lbl_idx:
-                            ok2 = _flex_startswith_upper(wu2, w2_mask, _ocr_norm_preserve_punct_upper(next_tokens[k]["text"]))
-                        else:
-                            ok2 = _flex_contains_upper(wu2, w2_mask, _ocr_norm_preserve_punct_upper(next_tokens[k]["text"]))
-                        if ok2:
-                            matched_in_line += 1
-                            k += 1
-                        else:
-                            break
-                    if matched_in_line > best_line_match:
-                        best_line_match = matched_in_line
-                        best_line_start = ci
-                if best_line_match == 0:
-                    break
-                # advance
-                seg_tokens = next_tokens[best_line_start: best_line_start + best_line_match]
+
+                # Advance using the best sibling line for this y
+                seg_tokens = best_line_overall_segtoks
+                next_line = lines[best_line_overall_idx]
                 segments.append({
                     "line_y": int(min(t["y"] for t in seg_tokens) if seg_tokens else next_line.get("y", 0)),
                     "start_x": seg_tokens[0]["x"],
                     "end_x": seg_tokens[-1]["x"] + seg_tokens[-1]["w"],
-                    "count": best_line_match,
+                    "count": best_line_overall_match,
                     "tokens": [t["text"] for t in seg_tokens]
                 })
-                # Continuation debug logs removed
-                curr_lbl_idx += best_line_match
-                # Advance to the actual index of the chosen next line (with greater y)
-                curr_idx = j
+
+                curr_lbl_idx += best_line_overall_match
+                curr_idx = best_line_overall_idx
                 lookahead_used += 1
                 x_ref = seg_tokens[0]["x"]
                 matched_all = (curr_lbl_idx == len(lbl_words_seq))
@@ -366,7 +376,6 @@ def _match_questions_like_labels(pil_image, questions: list[str]):
         q_words = [w for w in raw_words if w]
         if not q_words:
             continue
-        # Build expected string previously used for debug; no longer needed
         # Try multiline (covers single-line as first segment when all words match)
         hit = try_multiline(q_words)
         if hit is not None:
@@ -374,20 +383,7 @@ def _match_questions_like_labels(pil_image, questions: list[str]):
             results[q].append({"x": sx, "y": sy, "segments": hit["segments"]})
             # Detection logs trimmed for cleanliness
             continue
-        # Fallback: skip a few leading words
-        found = False
-        for skip in range(1, min(5, len(q_words))):
-            suffix = q_words[skip:]
-            hit2 = try_multiline(suffix)
-            if hit2 is not None:
-                (sx, sy) = hit2["start"]
-                results[q].append({"x": sx, "y": sy, "segments": hit2["segments"], "skipped": skip})
-                # Skipped-start detection logs trimmed
-                found = True
-                break
-        if not found:
-            # Quiet miss (no verbose near-miss logs)
-            pass
+        # No partial matches accepted: if full phrase isn't matched, treat as miss
     return results
 
 
@@ -406,17 +402,24 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
             if not reg:
                 continue
             anchors[name] = reg.get("y1")
-            # quiet: region info available but not logged
-        # Build continuous vertical bands from anchor to next anchor (ignoring checkbox-derived y2)
+        # Build vertical bands using region.y2 as primary bottom, but never past next anchor
         try:
             img_w, img_h = pil_image.size
         except Exception:
             img_h = 10_000
         ordered = sorted([(n, y) for n, y in anchors.items() if y is not None], key=lambda t: t[1])
+        name_to_next_anchor = {}
         for idx, (name, y1) in enumerate(ordered):
-            y2 = ordered[idx + 1][1] - 1 if (idx + 1) < len(ordered) else img_h
-            bands[name] = (y1, y2)
-            # quiet: band info suppressed
+            next_y = ordered[idx + 1][1] - 1 if (idx + 1) < len(ordered) else img_h
+            name_to_next_anchor[name] = next_y
+        for name, anchor_y in ordered:
+            reg = section_regions.get(name) or {}
+            region_y2 = int(reg.get("y2")) if isinstance(reg.get("y2"), (int, float)) else None
+            next_anchor_bottom = name_to_next_anchor.get(name, img_h)
+            if region_y2 is not None:
+                bands[name] = (anchor_y, min(region_y2, next_anchor_bottom))
+            else:
+                bands[name] = (anchor_y, next_anchor_bottom)
     else:
         anchors = _match_section_anchors(pil_image, sections)
         # Build vertical bands per section using next anchor as bottom; fallback to image height
@@ -432,6 +435,8 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
 
     # 2) For each section, match its questions using label-like matcher
     out = []
+    # Enforce questions to start below anchor by the shared offset
+    anchor_offset_px = ANCHOR_OFFSET_PX
     for sec in sections:
         sec_name = sec["section_name"]
         qs = sec.get("questions") or []
@@ -440,12 +445,23 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
         qhits = _match_questions_like_labels(pil_image, qs)
         sec_hits = []
         yband = bands.get(sec_name)
+        # Determine the minimum y allowed for question starts (below anchor)
+        sec_anchor_y = anchors.get(sec_name)
+        min_start_y = None
+        try:
+            if isinstance(sec_anchor_y, (int, float)):
+                min_start_y = int(sec_anchor_y) + anchor_offset_px
+        except Exception:
+            min_start_y = None
         for q in qs:
             hits = qhits.get(q, [])
+            # Discard any hits that indicate skipped words (full-match requirement)
+            hits = [h for h in hits if not h.get("skipped")]
             # Attribute to this section by y-band if available
             if yband:
                 y1, y2 = yband
-                hits = [h for h in hits if y1 <= h.get("y", 0) <= y2]
+                # Enforce both band and post-anchor minimum start y (if anchor known)
+                hits = [h for h in hits if y1 <= h.get("y", 0) <= y2 and (min_start_y is None or h.get("y", 0) >= min_start_y)]
             # If no in-band hits found, retry by restricting OCR to the band's crop (within-section scan)
             if not hits and yband:
                 try:
@@ -454,26 +470,50 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
                     img_w, img_h = (2000, 10000)
                 y1, y2 = yband
                 # Guard bounds
-                y1c = max(0, int(y1))
-                y2c = max(y1c + 1, int(min(img_h, y2)))
-                try:
-                    region_img = pil_image.crop((0, y1c, img_w, y2c))
-                    band_hits = _match_questions_like_labels(region_img, [q]).get(q, [])
-                    # Adjust y back to full-page coordinates
-                    for bh in band_hits:
-                        bh["y"] = int(bh.get("y", 0)) + y1c
-                        # Also adjust per-segment line_y values to page coordinates
-                        for seg in bh.get("segments", []):
-                            if isinstance(seg, dict) and "line_y" in seg:
-                                try:
-                                    seg["line_y"] = int(seg["line_y"]) + y1c
-                                except Exception:
-                                    pass
-                        hits.append(bh)
-                    if band_hits:
-                        print(f"[Q-RETRY-BAND] '{q}' found within section '{sec_name}' by band-restricted scan at y≈{band_hits[0].get('y')}")
-                except Exception:
-                    pass
+                # Start crop below the anchor if known
+                y1_effective = int(y1)
+                if isinstance(sec_anchor_y, (int, float)):
+                    y1_effective = max(y1_effective, int(sec_anchor_y) + anchor_offset_px)
+                y1c = max(0, y1_effective)
+                # First try with the band bottom (may be region.y2 clamped by next anchor)
+                y2c_primary = max(y1c + 1, int(min(img_h, y2)))
+                did_widen = False
+                def try_crop(y2c_local):
+                    local_hits = []
+                    try:
+                        region_img = pil_image.crop((0, y1c, img_w, y2c_local))
+                        bhits = _match_questions_like_labels(region_img, [q]).get(q, [])
+                        for bh in bhits:
+                            bh["y"] = int(bh.get("y", 0)) + y1c
+                            for seg in bh.get("segments", []):
+                                if isinstance(seg, dict) and "line_y" in seg:
+                                    try:
+                                        seg["line_y"] = int(seg["line_y"]) + y1c
+                                    except Exception:
+                                        pass
+                            if (min_start_y is None) or (bh.get("y", 0) >= min_start_y):
+                                local_hits.append(bh)
+                    except Exception:
+                        return []
+                    return local_hits
+                band_hits = try_crop(y2c_primary)
+                # If still empty and we have anchors, widen to next-anchor bottom ignoring region.y2
+                if not band_hits and section_regions and sec_name in anchors:
+                    try:
+                        # compute next anchor bottom
+                        ordered = sorted([(n, y) for n, y in anchors.items() if y is not None], key=lambda t: t[1])
+                        idx = next((i for i, (n, _) in enumerate(ordered) if n == sec_name), None)
+                        if idx is not None:
+                            next_anchor_bottom = ordered[idx + 1][1] - 1 if (idx + 1) < len(ordered) else img_h
+                            y2c_wide = max(y1c + 1, int(min(img_h, next_anchor_bottom)))
+                            if y2c_wide > y2c_primary:
+                                did_widen = True
+                                band_hits = try_crop(y2c_wide)
+                    except Exception:
+                        pass
+                for bh in band_hits:
+                    hits.append(bh)
+                # Suppress targeted retry logs
             if not hits:
                 continue
             # Pick the first by y then x (stable order)
@@ -484,11 +524,12 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
                 "segments": chosen.get("segments", []),
                 "skipped": chosen.get("skipped") if "skipped" in chosen else None
             })
-        if anchors.get(sec_name) is not None or sec_hits:
+        # Only include sections that have at least one matched question
+        if sec_hits:
             out.append({
                 "section": sec_name,
                 "anchor_y": anchors.get(sec_name),
-                "questions": sec_hits
+        "questions": sec_hits
             })
     return out
 
