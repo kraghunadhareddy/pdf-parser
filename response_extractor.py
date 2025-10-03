@@ -129,6 +129,7 @@ def _match_section_anchors(pil_image, sections: list[dict]):
         return ''.join(c for c in t if c.isalpha())
 
     anchors = {}
+    claimed_anchor_ys = set()
     for section in sections:
         name = section["section_name"]
         exp_s, i_mask = _build_expected_masked_upper(name)
@@ -142,6 +143,9 @@ def _match_section_anchors(pil_image, sections: list[dict]):
                 exp_short, i_mask_short = _build_expected_masked_upper(letters_only_token(name))
                 for tok in tokens:
                     if _flex_equal_upper(exp_short, i_mask_short, tok):
+                        # Do not reuse an anchor y already claimed
+                        if line["y"] in claimed_anchor_ys:
+                            continue
                         anchor_y = line["y"]
                         # anchor matched (token flex) – verbose log removed
                         break
@@ -149,6 +153,9 @@ def _match_section_anchors(pil_image, sections: list[dict]):
                     break
             else:
                 if _flex_contains_upper(exp_s, i_mask, line_s):
+                    # Do not reuse an anchor y already claimed
+                    if line["y"] in claimed_anchor_ys:
+                        continue
                     anchor_y = line["y"]
                     # anchor matched – verbose log removed
                     break
@@ -156,6 +163,8 @@ def _match_section_anchors(pil_image, sections: list[dict]):
             print(f"[WARN] No anchor found for section '{name}'")
         else:
             anchors[name] = anchor_y
+            # Claim anchor y so subsequent sections cannot bind at the same y
+            claimed_anchor_ys.add(anchor_y)
     return anchors
 
 
@@ -243,6 +252,54 @@ def _match_questions_like_labels(pil_image, questions: list[str]):
             if matched_here == len(lbl_words):
                 break
         return best_start, best_matched_here
+
+    def find_all_full_in_line(words, lbl_words):
+        """Return a list of segment dicts for all same-line full matches on this line."""
+        segments = []
+        if not words:
+            return segments
+        exp_concat_s, exp_concat_mask = _build_expected_masked_upper(' '.join(lbl_words))
+        for start_idx in range(len(words)):
+            # Fast path: entire phrase merged into one token
+            tok0_clean = _ocr_norm_preserve_punct_upper(words[start_idx]["text"])
+            if _flex_startswith_upper(exp_concat_s, exp_concat_mask, tok0_clean):
+                seg_tokens = [words[start_idx]]
+                segments.append({
+                    "line_y": int(min(t["y"] for t in seg_tokens)),
+                    "start_x": seg_tokens[0]["x"],
+                    "end_x": seg_tokens[-1]["x"] + seg_tokens[-1]["w"],
+                    "count": len(lbl_words),
+                    "tokens": [t["text"] for t in seg_tokens],
+                })
+                continue
+            matched_here = 0
+            k = start_idx
+            for lbl_idx in range(0, len(lbl_words)):
+                if k >= len(words):
+                    matched_here = 0
+                    break
+                wu, w_mask = _build_expected_masked_upper(lbl_words[lbl_idx])
+                tok_clean = _ocr_norm_preserve_punct_upper(words[k]["text"])
+                if lbl_idx == 0:
+                    ok = _flex_startswith_upper(wu, w_mask, tok_clean)
+                else:
+                    ok = _flex_contains_upper(wu, w_mask, tok_clean)
+                if ok:
+                    matched_here += 1
+                    k += 1
+                else:
+                    matched_here = 0
+                    break
+            if matched_here == len(lbl_words):
+                seg_tokens = words[start_idx: start_idx + matched_here]
+                segments.append({
+                    "line_y": int(min(t["y"] for t in seg_tokens)),
+                    "start_x": seg_tokens[0]["x"],
+                    "end_x": seg_tokens[-1]["x"] + seg_tokens[-1]["w"],
+                    "count": matched_here,
+                    "tokens": [t["text"] for t in seg_tokens],
+                })
+        return segments
 
     base_x_tolerance = LABEL_MULTILINE_BASE_X_TOLERANCE
     max_lookahead = LABEL_MULTILINE_MAX_LOOKAHEAD
@@ -370,20 +427,45 @@ def _match_questions_like_labels(pil_image, questions: list[str]):
         return None
 
     results = defaultdict(list)
+    # De-duplicate by question text to avoid redundant identical scans for repeated entries
+    unique_questions = []
+    seen_qtexts = set()
     for q in questions:
+        if q not in seen_qtexts:
+            unique_questions.append(q)
+            seen_qtexts.add(q)
+    for q in unique_questions:
         raw_words = q.split()
-        # Preserve punctuation for questions: use raw tokens (control chars removed later in comparator)
         q_words = [w for w in raw_words if w]
         if not q_words:
             continue
-        # Try multiline (covers single-line as first segment when all words match)
+        # Pass 1: collect all same-line full matches across the page
+        seen_starts = set()
+        for line in lines:
+            segs = find_all_full_in_line(line["words"], q_words)
+            for seg in segs:
+                sx = int(seg["start_x"])
+                sy = int(seg["line_y"])
+                key = (sx, sy)
+                if key in seen_starts:
+                    continue
+                seen_starts.add(key)
+                results[q].append({
+                    "x": sx,
+                    "y": sy,
+                    "segments": [seg]
+                })
+        # Pass 2: multiline fallback – find additional wrapped matches not caught in pass 1
         hit = try_multiline(q_words)
         if hit is not None:
-            (sx, sy) = hit["start"]
-            results[q].append({"x": sx, "y": sy, "segments": hit["segments"]})
-            # Detection logs trimmed for cleanliness
-            continue
-        # No partial matches accepted: if full phrase isn't matched, treat as miss
+            sx, sy = int(hit["start"][0]), int(hit["start"][1])
+            key = (sx, sy)
+            if key not in seen_starts:
+                results[q].append({
+                    "x": sx,
+                    "y": sy,
+                    "segments": hit["segments"],
+                })
     return results
 
 
@@ -444,6 +526,8 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
             continue
         qhits = _match_questions_like_labels(pil_image, qs)
         sec_hits = []
+        # Lock exact start positions per question so repeated entries pick subsequent occurrences
+        claimed_start_positions_by_q = defaultdict(set)
         yband = bands.get(sec_name)
         # Determine the minimum y allowed for question starts (below anchor)
         sec_anchor_y = anchors.get(sec_name)
@@ -477,7 +561,6 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
                 y1c = max(0, y1_effective)
                 # First try with the band bottom (may be region.y2 clamped by next anchor)
                 y2c_primary = max(y1c + 1, int(min(img_h, y2)))
-                did_widen = False
                 def try_crop(y2c_local):
                     local_hits = []
                     try:
@@ -507,7 +590,6 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
                             next_anchor_bottom = ordered[idx + 1][1] - 1 if (idx + 1) < len(ordered) else img_h
                             y2c_wide = max(y1c + 1, int(min(img_h, next_anchor_bottom)))
                             if y2c_wide > y2c_primary:
-                                did_widen = True
                                 band_hits = try_crop(y2c_wide)
                     except Exception:
                         pass
@@ -516,20 +598,26 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
                 # Suppress targeted retry logs
             if not hits:
                 continue
-            # Pick the first by y then x (stable order)
-            chosen = sorted(hits, key=lambda h: (h.get("y", 0), h.get("x", 0)))[0]
-            sec_hits.append({
-                "question": q,
-                "position": [int(chosen.get("x", 0)), int(chosen.get("y", 0))],
-                "segments": chosen.get("segments", []),
-                "skipped": chosen.get("skipped") if "skipped" in chosen else None
-            })
+            # Sort stable and pick the first hit whose exact start (x,y) isn't already claimed for this question
+            for chosen in sorted(hits, key=lambda h: (h.get("y", 0), h.get("x", 0))):
+                cx, cy = int(chosen.get("x", 0)), int(chosen.get("y", 0))
+                key = (cx, cy)
+                if key in claimed_start_positions_by_q[q]:
+                    continue
+                claimed_start_positions_by_q[q].add(key)
+                sec_hits.append({
+                    "question": q,
+                    "position": [cx, cy],
+                    "segments": chosen.get("segments", []),
+                    "skipped": chosen.get("skipped") if "skipped" in chosen else None
+                })
+                break
         # Only include sections that have at least one matched question
         if sec_hits:
             out.append({
                 "section": sec_name,
                 "anchor_y": anchors.get(sec_name),
-        "questions": sec_hits
+                "questions": sec_hits
             })
     return out
 

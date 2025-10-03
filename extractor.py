@@ -470,6 +470,7 @@ class CheckboxExtractor:
                     return True
             return False
 
+        claimed_anchor_ys = set()
         for section in sections:
             section_name = section["section_name"]
             anchor_y = None
@@ -487,6 +488,10 @@ class CheckboxExtractor:
                     matched_short = False
                     for tok in tokens:
                         if flex_equal(exp_short, i_mask_short, tok):
+                            # Lock-out: do not reuse an anchor y already claimed by another section
+                            if line["y"] in claimed_anchor_ys:
+                                matched_short = False
+                                break
                             anchor_y = line["y"]
                             matched_short = True
                             break
@@ -494,11 +499,16 @@ class CheckboxExtractor:
                         break
                 else:
                     if flex_contains(exp_s, i_mask, line_s):
+                        # Lock-out: do not reuse an anchor y already claimed by another section
+                        if line["y"] in claimed_anchor_ys:
+                            continue
                         anchor_y = line["y"]
                         break
             if anchor_y is None:
                 print(f"[WARN] No anchor found for section '{section_name}'")
                 continue
+            # Claim this anchor y so no other section can match at the same y
+            claimed_anchor_ys.add(anchor_y)
 
             # Extend downward until checkbox silence
             y2 = anchor_y

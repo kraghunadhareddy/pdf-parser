@@ -172,9 +172,9 @@
     {
         "section_name": "PREVENTATIVE CARE",
         "questions":[
-            "Last Mammogram ______ Abnormal?",
+            "Last Mammogram Abnormal?",
             "Any history of abnormal mammogram(s)?",
-            "Last Pap Smear ______ Abnormal?",
+            "Last Pap Smear Abnormal?",
             "Any history of abnormal Pap Smear?"
         ]
     },
