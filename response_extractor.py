@@ -66,8 +66,15 @@ def _flex_startswith_upper(expected_s: str, i_mask: set[int], haystack_s: str) -
     return _flex_equal_upper(expected_s, i_mask, haystack_s[:m])
 
 
-def _build_lines_with_geometry(pil_image):
-    data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+def _build_lines_with_geometry(pil_image, ocr_data=None):
+    """Return list of line dicts with token geometry.
+
+    If precomputed Tesseract OCR dict (image_to_data Output.DICT) is supplied,
+    reuse it to avoid re-running OCR (performance path aligned with extractor's
+    single-pass OCR optimization). Falls back to invoking pytesseract when not
+    provided for backward compatibility.
+    """
+    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
     lines = {}
     for i in range(len(data["text"])):
         word = data["text"][i].strip()
@@ -99,8 +106,13 @@ def _letters_only_upper(text: str) -> str:
 # -----------------------------
 # Section header matching (clone of extractor.detect_section_regions' anchor logic)
 # -----------------------------
-def _match_section_anchors(pil_image, sections: list[dict]):
-    data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+def _match_section_anchors(pil_image, sections: list[dict], ocr_data=None):
+    """Find approximate y anchor for each section header.
+
+    Accepts optional precomputed OCR data for performance. If not provided,
+    executes a fresh OCR call.
+    """
+    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
     lines = {}
     for i in range(len(data["text"])):
         word = data["text"][i].strip()
@@ -187,8 +199,20 @@ def _match_section_anchors(pil_image, sections: list[dict]):
 # -----------------------------
 # Question matching (clone of label matching with multiline lookahead + detailed logs)
 # -----------------------------
-def _match_questions_like_labels(pil_image, questions: list[str], next_page_image=None, next_page_head_lines: int = 5):
-    data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+def _match_questions_like_labels(pil_image, questions: list[str], *, ocr_data=None,
+                                 next_page_image=None, next_page_ocr_data=None,
+                                 next_page_head_lines: int = 5):
+    """Label-like multiline matching for question prompts.
+
+    Parameters:
+        pil_image: PIL image for the current page (already preprocessed upstream)
+        questions: list of question strings
+        ocr_data: optional OCR dict for current page
+        next_page_image: optional PIL image for next page (used only if next_page_ocr_data absent)
+        next_page_ocr_data: optional OCR dict for next page (head lines appended)
+        next_page_head_lines: number of distinct y-line groups from next page to append
+    """
+    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
 
     def clean_label_sequence(seq):
         # Preserve punctuation as-is; only remove control chars and spaces when concatenating
@@ -235,9 +259,9 @@ def _match_questions_like_labels(pil_image, questions: list[str], next_page_imag
         _, img_h = pil_image.size
     except Exception:
         img_h = 10000
-    if next_page_image is not None:
+    if next_page_ocr_data is not None or next_page_image is not None:
         try:
-            data2 = pytesseract.image_to_data(next_page_image, output_type=pytesseract.Output.DICT)
+            data2 = next_page_ocr_data or pytesseract.image_to_data(next_page_image, output_type=pytesseract.Output.DICT)
             next_lines = []
             for i in range(len(data2["text"])):
                 word = data2["text"][i].strip()
@@ -542,7 +566,8 @@ def _match_questions_like_labels(pil_image, questions: list[str], next_page_imag
 # -----------------------------
 # Public API: match sections and their questions with positions
 # -----------------------------
-def match_sections_and_questions(pil_image, sections: list[dict], section_regions: dict | None = None, next_page_image=None):
+def match_sections_and_questions(pil_image, sections: list[dict], section_regions: dict | None = None,
+                                 *, ocr_data=None, next_page_image=None, next_page_ocr_data=None):
     # 1) Section anchors: prefer provided section_regions from extractor; fallback to internal anchor detection
     anchors = {}
     bands = {}
@@ -573,7 +598,7 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
             else:
                 bands[name] = (anchor_y, next_anchor_bottom)
     else:
-        anchors = _match_section_anchors(pil_image, sections)
+        anchors = _match_section_anchors(pil_image, sections, ocr_data=ocr_data)
         # Build vertical bands per section using next anchor as bottom; fallback to image height
         try:
             img_w, img_h = pil_image.size
@@ -595,7 +620,13 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
         if not qs:
             continue
         # First pass: match only within this page; we'll only use cross-page continuation if needed per-question
-        qhits = _match_questions_like_labels(pil_image, qs, next_page_image=None)
+        qhits = _match_questions_like_labels(
+            pil_image,
+            qs,
+            ocr_data=ocr_data,
+            next_page_image=None,
+            next_page_ocr_data=None
+        )
         sec_hits = []
         # Lock exact start positions per question so repeated entries pick subsequent occurrences
         claimed_start_positions_by_q = defaultdict(set)
@@ -668,10 +699,15 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
                     hits.append(bh)
                 # Suppress targeted retry logs
             # Cross-page fallback: if still no hits for this question starting on this page, allow continuation into next page
-            if not hits and next_page_image is not None:
+            if not hits and (next_page_image is not None or next_page_ocr_data is not None):
                 try:
-                    # Only append the head of next page for this single-question scan
-                    xhits = _match_questions_like_labels(pil_image, [q], next_page_image=next_page_image).get(q, [])
+                    xhits = _match_questions_like_labels(
+                        pil_image,
+                        [q],
+                        ocr_data=ocr_data,
+                        next_page_image=next_page_image,
+                        next_page_ocr_data=next_page_ocr_data
+                    ).get(q, [])
                     if yband:
                         y1, y2 = yband
                         xhits = [h for h in xhits if y1 <= h.get("y", 0) <= y2 and (min_start_y is None or h.get("y", 0) >= min_start_y)]
@@ -708,11 +744,22 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
 # -----------------------------
 # Compatibility wrapper for extractor.py
 # -----------------------------
-def extract_responses_from_page(pil_image, sections: list, section_regions: dict | None = None, artifacts_dir: str | None = None, next_page_image=None):
+def extract_responses_from_page(pil_image, sections: list, section_regions: dict | None = None,
+                                artifacts_dir: str | None = None, next_page_image=None,
+                                *, ocr_data=None, next_page_ocr_data=None):
+    """Wrapper used by extractor to pull question anchor positions.
+
+    Added performance parameters:
+        ocr_data: precomputed OCR dict for current page
+        next_page_ocr_data: precomputed OCR dict for next page (for cross-page continuation)
     """
-    For now, return just section/question matches with positions (no answers),
-    using label-like matching and detailed multiline logs.
-    """
-    matches = match_sections_and_questions(pil_image, sections, section_regions=section_regions, next_page_image=next_page_image)
+    matches = match_sections_and_questions(
+        pil_image,
+        sections,
+        section_regions=section_regions,
+        ocr_data=ocr_data,
+        next_page_image=next_page_image,
+        next_page_ocr_data=next_page_ocr_data,
+    )
     # Shape similar enough for extractor to include under "responses"
     return matches

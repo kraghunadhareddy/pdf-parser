@@ -158,10 +158,27 @@ class CheckboxExtractor:
         print(f"Template matches: {len(boxes)} checkboxes detected")
         return boxes, img
 
-    def get_label_positions(self, pil_image, expected_labels, match_threshold=0.8, next_page_image=None, next_page_head_lines: int = 5):
+    def get_label_positions(self, pil_image, expected_labels, match_threshold=0.8,
+                             next_page_ocr_data=None, ocr_data=None, next_page_head_lines: int = 5):
+        """Locate label (question) anchor word positions.
+
+        Performance change: accepts precomputed Tesseract OCR dicts so we avoid
+        multiple full-page OCR passes. Falls back to running OCR if not supplied
+        (to preserve any external callers relying on old behavior).
+
+        Args:
+            pil_image: preprocessed PIL page image (used only for size / fallback OCR)
+            expected_labels: list[str] expected labels to search
+            match_threshold: unused currently (reserved for future fuzzy scoring)
+            next_page_ocr_data: optional OCR dict for the NEXT page head (for cross-page continuation)
+            ocr_data: OCR dict for this page (pytesseract.image_to_data Output.DICT)
+            next_page_head_lines: how many distinct y-line groups from next page to append
+        """
         import unicodedata
         import re
-        ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+
+        if ocr_data is None:
+            ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
         label_positions = defaultdict(list)
 
         def normalize_text(text):
@@ -278,17 +295,18 @@ class CheckboxExtractor:
 
         # Helper to build a version of lines with the head of the next page appended (y-offset by current page height)
         def build_lines_with_next_head(lines_input):
-            if next_page_image is None:
+            # Append head lines from next page OCR (already computed) if provided
+            if next_page_ocr_data is None:
                 return lines_input
             try:
-                np_data = pytesseract.image_to_data(next_page_image, output_type=pytesseract.Output.DICT)
+                np_data = next_page_ocr_data
                 next_lines = []
                 for i in range(len(np_data["text"])):
                     word = np_data["text"][i].strip()
                     if not word:
                         continue
                     x = np_data["left"][i]
-                    y = np_data["top"][i] + img_h
+                    y = np_data["top"][i] + img_h  # offset by current page height
                     block = np_data["block_num"][i]
                     par = np_data["par_num"][i]
                     line_num = np_data["line_num"][i]
@@ -306,7 +324,7 @@ class CheckboxExtractor:
                             "words": [{"text": word, "x": x, "y": y}],
                             "y": y
                         })
-                next_lines = sorted(next_lines, key=lambda l: l["y"])            
+                next_lines = sorted(next_lines, key=lambda l: l["y"])
                 kept = []
                 seen_groups = 0
                 i2 = 0
@@ -458,18 +476,16 @@ class CheckboxExtractor:
                             break
 
         # Pass 2: only for labels not found in-page, allow cross-page continuation by appending head of next page
-        if next_page_image is not None:
+        if next_page_ocr_data is not None:
             lines_with_next = build_lines_with_next_head(lines)
             for lbl in expected_labels:
                 if lbl in label_positions and label_positions[lbl]:
                     continue
                 lbl_words = lbl.split()
-                # Attempt multiline with next-page head lines available
                 pos = try_multiline_on_lines(lines_with_next, lbl_words)
                 if pos is not None:
                     label_positions[lbl].append(pos)
                     continue
-                # Fallback with skipped leading words
                 for skip in range(1, min(5, len(lbl_words))):
                     suffix = lbl_words[skip:]
                     pos2 = try_multiline_on_lines(lines_with_next, suffix)
@@ -481,8 +497,11 @@ class CheckboxExtractor:
 
         return label_positions
 
-    def detect_section_regions(self, pil_image, sections, label_positions, checkbox_positions, max_gap=SECTION_CB_MAX_GAP_PX):
-        ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+    def detect_section_regions(self, pil_image, sections, label_positions, checkbox_positions,
+                               max_gap=SECTION_CB_MAX_GAP_PX, ocr_data=None):
+        # Accept precomputed OCR data to avoid duplicate full-page OCR calls.
+        if ocr_data is None:
+            ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
         try:
             img_w, img_h = pil_image.size
         except Exception:
@@ -930,9 +949,14 @@ class CheckboxExtractor:
         remaining_questions_by_section = {}
         completed_question_sections = set()
 
-        for page_number, page_image in enumerate(pages, start=1):
+        # Single OCR pass optimization: preprocess & OCR each page once
+        preprocessed_pages = [self.preprocess_image(p) for p in pages]
+        ocr_pages = [pytesseract.image_to_data(pimg, output_type=pytesseract.Output.DICT) for pimg in preprocessed_pages]
+
+        for page_number in range(1, len(pages) + 1):
             print(f"Processing page {page_number}")
-            processed_img = self.preprocess_image(page_image)
+            processed_img = preprocessed_pages[page_number - 1]
+            ocr_data_curr = ocr_pages[page_number - 1]
             checkboxes, raw_img = self.detect_checkboxes(processed_img)
 
             # Only collect labels from sections that actually define them
@@ -953,15 +977,21 @@ class CheckboxExtractor:
                     continue
                 active_label_sections.append(sec)
                 labels_to_search.extend(sorted(rem))
-            # Build next-page preprocessed image up-front for cross-page continuation
-            next_page_image_for_labels = None
-            if page_number < len(pages):
-                try:
-                    next_page_image_for_labels = self.preprocess_image(pages[page_number])
-                except Exception:
-                    next_page_image_for_labels = None
-            label_positions = self.get_label_positions(processed_img, labels_to_search, next_page_image=next_page_image_for_labels)
-            section_regions = self.detect_section_regions(processed_img, sections, label_positions, checkboxes)
+            # Provide next-page OCR data for cross-page label continuation if needed
+            next_page_ocr_data = ocr_pages[page_number] if page_number < len(pages) else None
+            label_positions = self.get_label_positions(
+                processed_img,
+                labels_to_search,
+                ocr_data=ocr_data_curr,
+                next_page_ocr_data=next_page_ocr_data
+            )
+            section_regions = self.detect_section_regions(
+                processed_img,
+                sections,
+                label_positions,
+                checkboxes,
+                ocr_data=ocr_data_curr
+            )
 
             # Per-label diagnostics removed to reduce verbosity
 
@@ -994,12 +1024,8 @@ class CheckboxExtractor:
             # No further update needed here; we treat labels as 'found' based on OCR presence in region above
 
             # Extract free-text responses for sections that define "questions"
-            next_page_image = None
-            if page_number < len(pages):
-                try:
-                    next_page_image = self.preprocess_image(pages[page_number])  # pages is 0-indexed; current is start=1
-                except Exception:
-                    next_page_image = None
+            next_page_image = preprocessed_pages[page_number] if page_number < len(preprocessed_pages) else None
+            next_page_ocr_for_responses = ocr_pages[page_number] if page_number < len(ocr_pages) else None
             # Build a filtered sections list for questions: only include sections with questions still remaining
             if page_number == 1:
                 # Initialize remaining questions per section on first pass (keep duplicates)
@@ -1031,6 +1057,8 @@ class CheckboxExtractor:
                 section_regions,
                 artifacts_dir=self.artifacts_dir,
                 next_page_image=next_page_image,
+                ocr_data=ocr_data_curr,
+                next_page_ocr_data=next_page_ocr_for_responses,
             )
 
             # Update remaining/complete sets for questions based on matches we just made
