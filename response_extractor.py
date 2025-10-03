@@ -113,10 +113,20 @@ def _match_section_anchors(pil_image, sections: list[dict]):
                 "x": data["left"][i],
                 "y": data["top"][i],
                 "h": data["height"][i],
+                "tokens": [
+                    {"text": word, "x": data["left"][i]}
+                ]
             }
         else:
             lines[key]["text"] += " " + word
+            lines[key].setdefault("tokens", []).append({"text": word, "x": data["left"][i]})
     sorted_lines = sorted(lines.values(), key=lambda l: l["y"])
+    # Determine 10%-of-page-x threshold
+    try:
+        img_w, img_h = pil_image.size
+    except Exception:
+        img_w, img_h = (2000, 10000)
+    anchor_x_threshold = int(0.10 * img_w)
 
     def clean_line_preserve_case(text: str) -> str:
         t = unicodedata.normalize('NFKD', text)
@@ -136,29 +146,35 @@ def _match_section_anchors(pil_image, sections: list[dict]):
         anchor_y = None
         for line in sorted_lines:
             raw = line["text"]
-            line_s = clean_line_preserve_case(raw)
             cleaned_expected = clean_line_preserve_case(name)
-            if len(cleaned_expected) <= 3:
-                tokens = [letters_only_token(tok) for tok in raw.split()]
-                exp_short, i_mask_short = _build_expected_masked_upper(letters_only_token(name))
-                for tok in tokens:
-                    if _flex_equal_upper(exp_short, i_mask_short, tok):
-                        # Do not reuse an anchor y already claimed
-                        if line["y"] in claimed_anchor_ys:
-                            continue
-                        anchor_y = line["y"]
-                        # anchor matched (token flex) – verbose log removed
-                        break
-                if anchor_y is not None:
-                    break
-            else:
-                if _flex_contains_upper(exp_s, i_mask, line_s):
-                    # Do not reuse an anchor y already claimed
-                    if line["y"] in claimed_anchor_ys:
-                        continue
-                    anchor_y = line["y"]
-                    # anchor matched – verbose log removed
-                    break
+            name_words = name.split()
+            # Use letters-only token for first word, enforce token-level equality
+            exp_first_token_letters = letters_only_token(name_words[0]) if name_words else cleaned_expected
+            exp_first_token_masked, exp_first_token_mask = _build_expected_masked_upper(exp_first_token_letters)
+
+            line_tokens = line.get("tokens", [])
+            require_token_equality = (len(cleaned_expected) <= 3) or (len(name_words) == 1)
+            matched_here = False
+            for tok in line_tokens:
+                tok_letters = letters_only_token(tok.get("text", ""))
+                if not tok_letters:
+                    continue
+                if require_token_equality:
+                    ok = _flex_equal_upper(exp_first_token_masked, exp_first_token_mask, tok_letters)
+                else:
+                    ok = _flex_equal_upper(exp_first_token_masked, exp_first_token_mask, tok_letters)
+                if not ok:
+                    continue
+                if line["y"] in claimed_anchor_ys:
+                    continue
+                # Enforce first 10% based on matched token's x
+                if int(tok.get("x", 0)) > anchor_x_threshold:
+                    continue
+                anchor_y = line["y"]
+                matched_here = True
+                break
+            if matched_here:
+                break
         if anchor_y is None:
             print(f"[WARN] No anchor found for section '{name}'")
         else:
@@ -171,7 +187,7 @@ def _match_section_anchors(pil_image, sections: list[dict]):
 # -----------------------------
 # Question matching (clone of label matching with multiline lookahead + detailed logs)
 # -----------------------------
-def _match_questions_like_labels(pil_image, questions: list[str]):
+def _match_questions_like_labels(pil_image, questions: list[str], next_page_image=None, next_page_head_lines: int = 5):
     data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
 
     def clean_label_sequence(seq):
@@ -212,6 +228,60 @@ def _match_questions_like_labels(pil_image, questions: list[str]):
     for ln in lines:
         ln["words"].sort(key=lambda t: t["x"])
     lines = sorted(lines, key=lambda l: l["y"]) 
+
+    # Optionally append the first few line-groups from the next page, offset by this page's height,
+    # so multiline matching can continue across a page break while preserving the start position on this page.
+    try:
+        _, img_h = pil_image.size
+    except Exception:
+        img_h = 10000
+    if next_page_image is not None:
+        try:
+            data2 = pytesseract.image_to_data(next_page_image, output_type=pytesseract.Output.DICT)
+            next_lines = []
+            for i in range(len(data2["text"])):
+                word = data2["text"][i].strip()
+                if not word:
+                    continue
+                x = data2["left"][i]
+                y = data2["top"][i] + img_h  # offset into virtual space below current page
+                w = data2["width"][i]
+                h = data2["height"][i]
+                block = data2["block_num"][i]
+                par = data2["par_num"][i]
+                line_num = data2["line_num"][i]
+                found = False
+                for l in next_lines:
+                    if l["block"] == block and l["par"] == par and l["line_num"] == line_num:
+                        l["words"].append({"text": word, "x": x, "y": y, "w": w, "h": h})
+                        found = True
+                        break
+                if not found:
+                    next_lines.append({
+                        "block": block,
+                        "par": par,
+                        "line_num": line_num,
+                        "words": [{"text": word, "x": x, "y": y, "w": w, "h": h}],
+                        "y": y
+                    })
+            for ln2 in next_lines:
+                ln2["words"].sort(key=lambda t: t["x"])
+            next_lines = sorted(next_lines, key=lambda l: l["y"]) 
+            # Keep only the first K unique-y groups
+            kept = []
+            seen_groups = 0
+            i = 0
+            while i < len(next_lines) and seen_groups < max(0, int(next_page_head_lines)):
+                group_y = next_lines[i]["y"]
+                group = []
+                while i < len(next_lines) and next_lines[i]["y"] == group_y:
+                    group.append(next_lines[i])
+                    i += 1
+                kept.extend(group)
+                seen_groups += 1
+            lines.extend(kept)
+        except Exception:
+            pass
 
     # OCR-side normalization that preserves visible punctuation; only strips control chars and uppercases
     def _ocr_norm_preserve_punct_upper(text: str) -> str:
@@ -472,7 +542,7 @@ def _match_questions_like_labels(pil_image, questions: list[str]):
 # -----------------------------
 # Public API: match sections and their questions with positions
 # -----------------------------
-def match_sections_and_questions(pil_image, sections: list[dict], section_regions: dict | None = None):
+def match_sections_and_questions(pil_image, sections: list[dict], section_regions: dict | None = None, next_page_image=None):
     # 1) Section anchors: prefer provided section_regions from extractor; fallback to internal anchor detection
     anchors = {}
     bands = {}
@@ -524,7 +594,8 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
         qs = sec.get("questions") or []
         if not qs:
             continue
-        qhits = _match_questions_like_labels(pil_image, qs)
+        # First pass: match only within this page; we'll only use cross-page continuation if needed per-question
+        qhits = _match_questions_like_labels(pil_image, qs, next_page_image=None)
         sec_hits = []
         # Lock exact start positions per question so repeated entries pick subsequent occurrences
         claimed_start_positions_by_q = defaultdict(set)
@@ -596,6 +667,18 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
                 for bh in band_hits:
                     hits.append(bh)
                 # Suppress targeted retry logs
+            # Cross-page fallback: if still no hits for this question starting on this page, allow continuation into next page
+            if not hits and next_page_image is not None:
+                try:
+                    # Only append the head of next page for this single-question scan
+                    xhits = _match_questions_like_labels(pil_image, [q], next_page_image=next_page_image).get(q, [])
+                    if yband:
+                        y1, y2 = yband
+                        xhits = [h for h in xhits if y1 <= h.get("y", 0) <= y2 and (min_start_y is None or h.get("y", 0) >= min_start_y)]
+                    for h in xhits:
+                        hits.append(h)
+                except Exception:
+                    pass
             if not hits:
                 continue
             # Sort stable and pick the first hit whose exact start (x,y) isn't already claimed for this question
@@ -625,11 +708,11 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
 # -----------------------------
 # Compatibility wrapper for extractor.py
 # -----------------------------
-def extract_responses_from_page(pil_image, sections: list, section_regions: dict | None = None, artifacts_dir: str | None = None):
+def extract_responses_from_page(pil_image, sections: list, section_regions: dict | None = None, artifacts_dir: str | None = None, next_page_image=None):
     """
     For now, return just section/question matches with positions (no answers),
     using label-like matching and detailed multiline logs.
     """
-    matches = match_sections_and_questions(pil_image, sections, section_regions=section_regions)
+    matches = match_sections_and_questions(pil_image, sections, section_regions=section_regions, next_page_image=next_page_image)
     # Shape similar enough for extractor to include under "responses"
     return matches

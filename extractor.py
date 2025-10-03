@@ -11,7 +11,7 @@ import numpy as np
 import json
 import os
 import argparse
-from collections import defaultdict
+from collections import defaultdict, Counter
 import pprint
 import re
 from response_extractor import extract_responses_from_page
@@ -158,7 +158,7 @@ class CheckboxExtractor:
         print(f"Template matches: {len(boxes)} checkboxes detected")
         return boxes, img
 
-    def get_label_positions(self, pil_image, expected_labels, match_threshold=0.8):
+    def get_label_positions(self, pil_image, expected_labels, match_threshold=0.8, next_page_image=None, next_page_head_lines: int = 5):
         import unicodedata
         import re
         ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
@@ -270,6 +270,155 @@ class CheckboxExtractor:
                 lines.append({"block": block, "par": par, "line_num": line_num, "words": [{"text": word, "x": x, "y": y}], "y": y})
         lines = sorted(lines, key=lambda l: l["y"])
 
+        # We'll keep current-page lines separate; cross-page continuation will be attempted later only for unfound labels
+        try:
+            _, img_h = pil_image.size
+        except Exception:
+            img_h = 10000
+
+        # Helper to build a version of lines with the head of the next page appended (y-offset by current page height)
+        def build_lines_with_next_head(lines_input):
+            if next_page_image is None:
+                return lines_input
+            try:
+                np_data = pytesseract.image_to_data(next_page_image, output_type=pytesseract.Output.DICT)
+                next_lines = []
+                for i in range(len(np_data["text"])):
+                    word = np_data["text"][i].strip()
+                    if not word:
+                        continue
+                    x = np_data["left"][i]
+                    y = np_data["top"][i] + img_h
+                    block = np_data["block_num"][i]
+                    par = np_data["par_num"][i]
+                    line_num = np_data["line_num"][i]
+                    found_local = False
+                    for l in next_lines:
+                        if l["block"] == block and l["par"] == par and l["line_num"] == line_num:
+                            l["words"].append({"text": word, "x": x, "y": y})
+                            found_local = True
+                            break
+                    if not found_local:
+                        next_lines.append({
+                            "block": block,
+                            "par": par,
+                            "line_num": line_num,
+                            "words": [{"text": word, "x": x, "y": y}],
+                            "y": y
+                        })
+                next_lines = sorted(next_lines, key=lambda l: l["y"])            
+                kept = []
+                seen_groups = 0
+                i2 = 0
+                while i2 < len(next_lines) and seen_groups < max(0, int(next_page_head_lines)):
+                    group_y = next_lines[i2]["y"]
+                    group = []
+                    while i2 < len(next_lines) and next_lines[i2]["y"] == group_y:
+                        group.append(next_lines[i2])
+                        i2 += 1
+                    kept.extend(group)
+                    seen_groups += 1
+                return lines_input + kept
+            except Exception:
+                return lines_input
+
+        # Multiline helper parameterized by the set of lines to search across
+        def try_multiline_on_lines(lines_input, lbl_words_seq):
+            # Slightly wider tolerance helps wrapped paragraphs with indent/outdent
+            base_x_tolerance = LABEL_MULTILINE_BASE_X_TOLERANCE
+            max_lookahead = LABEL_MULTILINE_MAX_LOOKAHEAD
+
+            def _inner(lbl_words_seq_local):
+                for i, line in enumerate(lines_input):
+                    words = line["words"]
+                    if not words:
+                        continue
+                    # Try all possible starting tokens on this line; pick the one that matches the most leading words contiguously
+                    best_start = None
+                    best_matched_here = 0
+                    for start_idx in range(len(words)):
+                        matched_here = 0
+                        k = start_idx
+                        for lbl_idx in range(0, len(lbl_words_seq_local)):
+                            if k >= len(words):
+                                break
+                            wu, w_mask = build_expected_masked_upper(lbl_words_seq_local[lbl_idx])
+                            tok_clean = normalize_text(words[k]["text"])
+                            if flex_contains(wu, w_mask, tok_clean):
+                                matched_here += 1
+                                k += 1
+                            else:
+                                break
+                        if matched_here > best_matched_here:
+                            best_matched_here = matched_here
+                            best_start = start_idx
+                        # Early exit if whole label fits here
+                        if matched_here == len(lbl_words_seq_local):
+                            break
+                    if best_matched_here == 0:
+                        continue
+                    # Set starting position and x_ref from the chosen start
+                    start_x = words[best_start]["x"]
+                    start_y = words[best_start]["y"]
+                    x_ref = start_x
+                    curr_lbl_idx = best_matched_here
+                    curr_idx = i
+                    matched_all = (curr_lbl_idx == len(lbl_words_seq_local))
+                    lookahead_used = 0
+                    x_tolerance = base_x_tolerance
+                    # Continue to next lines within constraints
+                    while not matched_all and lookahead_used < max_lookahead:
+                        if curr_idx + 1 >= len(lines_input):
+                            break
+                        next_line = lines_input[curr_idx + 1]
+                        next_tokens = next_line["words"]
+                        if not next_tokens:
+                            break
+                        # Candidates within x_tolerance for the next expected word
+                        expected_word = lbl_words_seq_local[curr_lbl_idx]
+                        wuN, w_maskN = build_expected_masked_upper(expected_word)
+                        candidate_indices = [idx for idx, tok in enumerate(next_tokens)
+                                             if abs(tok["x"] - x_ref) <= x_tolerance and flex_contains(wuN, w_maskN, normalize_text(tok["text"]))]
+                        # If none within tolerance, relax by scanning the whole line (fallback)
+                        if not candidate_indices:
+                            candidate_indices = [idx for idx, tok in enumerate(next_tokens)
+                                                 if flex_contains(wuN, w_maskN, normalize_text(tok["text"]))]
+                        if not candidate_indices:
+                            break
+                        # For each candidate, compute how many contiguous words match to the right
+                        best_line_match = 0
+                        best_line_start = None
+                        for ci in candidate_indices:
+                            matched_in_line = 0
+                            k = ci
+                            for lbl_idx in range(curr_lbl_idx, len(lbl_words_seq_local)):
+                                if k >= len(next_tokens):
+                                    break
+                                wu2, w2_mask = build_expected_masked_upper(lbl_words_seq_local[lbl_idx])
+                                if flex_contains(wu2, w2_mask, normalize_text(next_tokens[k]["text"])):
+                                    matched_in_line += 1
+                                    k += 1
+                                else:
+                                    break
+                            if matched_in_line > best_line_match:
+                                best_line_match = matched_in_line
+                                best_line_start = ci
+                        if best_line_match == 0:
+                            break
+                        # Advance
+                        curr_lbl_idx += best_line_match
+                        curr_idx += 1
+                        lookahead_used += 1
+                        x_ref = next_tokens[best_line_start]["x"]
+                        matched_all = (curr_lbl_idx == len(lbl_words_seq_local))
+                    if matched_all:
+                        return (start_x, start_y)
+                return None
+
+            return _inner(lbl_words_seq)
+
+        # Pass 1: in-page only search
+        found_labels = set()
         for lbl in expected_labels:
             lbl_words = lbl.split()
             first_word = normalize_text(lbl_words[0])
@@ -292,110 +441,41 @@ class CheckboxExtractor:
                             found = True
             # Multi-line lookahead (contiguous tokens, x tolerance on next lines)
             if not found:
-                # Slightly wider tolerance helps wrapped paragraphs with indent/outdent
-                base_x_tolerance = LABEL_MULTILINE_BASE_X_TOLERANCE
-                max_lookahead = LABEL_MULTILINE_MAX_LOOKAHEAD
-
-                def try_multiline(lbl_words_seq):
-                    for i, line in enumerate(lines):
-                        words = line["words"]
-                        if not words:
-                            continue
-                        # Try all possible starting tokens on this line; pick the one that matches the most leading words contiguously
-                        best_start = None
-                        best_matched_here = 0
-                        for start_idx in range(len(words)):
-                            matched_here = 0
-                            k = start_idx
-                            for lbl_idx in range(0, len(lbl_words_seq)):
-                                if k >= len(words):
-                                    break
-                                wu, w_mask = build_expected_masked_upper(lbl_words_seq[lbl_idx])
-                                tok_clean = normalize_text(words[k]["text"])
-                                if flex_contains(wu, w_mask, tok_clean):
-                                    matched_here += 1
-                                    k += 1
-                                else:
-                                    break
-                            if matched_here > best_matched_here:
-                                best_matched_here = matched_here
-                                best_start = start_idx
-                            # Early exit if whole label fits here
-                            if matched_here == len(lbl_words_seq):
-                                break
-                        if best_matched_here == 0:
-                            continue
-                        # Set starting position and x_ref from the chosen start
-                        start_x = words[best_start]["x"]
-                        start_y = words[best_start]["y"]
-                        x_ref = start_x
-                        curr_lbl_idx = best_matched_here
-                        curr_idx = i
-                        matched_all = (curr_lbl_idx == len(lbl_words_seq))
-                        lookahead_used = 0
-                        x_tolerance = base_x_tolerance
-                        # Continue to next lines within constraints
-                        while not matched_all and lookahead_used < max_lookahead:
-                            if curr_idx + 1 >= len(lines):
-                                break
-                            next_line = lines[curr_idx + 1]
-                            next_tokens = next_line["words"]
-                            if not next_tokens:
-                                break
-                            # Candidates within x_tolerance for the next expected word
-                            expected_word = lbl_words_seq[curr_lbl_idx]
-                            wuN, w_maskN = build_expected_masked_upper(expected_word)
-                            candidate_indices = [idx for idx, tok in enumerate(next_tokens)
-                                                 if abs(tok["x"] - x_ref) <= x_tolerance and flex_contains(wuN, w_maskN, normalize_text(tok["text"]))]
-                            # If none within tolerance, relax by scanning the whole line (fallback)
-                            if not candidate_indices:
-                                candidate_indices = [idx for idx, tok in enumerate(next_tokens)
-                                                     if flex_contains(wuN, w_maskN, normalize_text(tok["text"]))]
-                            if not candidate_indices:
-                                break
-                            # For each candidate, compute how many contiguous words match to the right
-                            best_line_match = 0
-                            best_line_start = None
-                            for ci in candidate_indices:
-                                matched_in_line = 0
-                                k = ci
-                                for lbl_idx in range(curr_lbl_idx, len(lbl_words_seq)):
-                                    if k >= len(next_tokens):
-                                        break
-                                    wu2, w2_mask = build_expected_masked_upper(lbl_words_seq[lbl_idx])
-                                    if flex_contains(wu2, w2_mask, normalize_text(next_tokens[k]["text"])):
-                                        matched_in_line += 1
-                                        k += 1
-                                    else:
-                                        break
-                                if matched_in_line > best_line_match:
-                                    best_line_match = matched_in_line
-                                    best_line_start = ci
-                            if best_line_match == 0:
-                                break
-                            # Advance
-                            curr_lbl_idx += best_line_match
-                            curr_idx += 1
-                            lookahead_used += 1
-                            x_ref = next_tokens[best_line_start]["x"]
-                            matched_all = (curr_lbl_idx == len(lbl_words_seq))
-                        if matched_all:
-                            return (start_x, start_y)
-                    return None
-
-                # First, try with full label words
-                pos = try_multiline(lbl_words)
+                # First, try with full label words on in-page lines only
+                pos = try_multiline_on_lines(lines, lbl_words)
                 if pos is not None:
                     label_positions[lbl].append(pos)
+                    found_labels.add(lbl)
                 else:
-                    # Fallback: allow starting match from later words if early words were mis-OCR'd
+                    # Fallback: allow starting match from later words if early words were mis-OCR'd (in-page only)
                     # For long labels, skipping up to 4 words reduces sensitivity to noisy line starts.
                     for skip in range(1, min(5, len(lbl_words))):
                         suffix = lbl_words[skip:]
-                        pos2 = try_multiline(suffix)
+                        pos2 = try_multiline_on_lines(lines, suffix)
                         if pos2 is not None:
                             label_positions[lbl].append(pos2)
+                            found_labels.add(lbl)
                             break
+
+        # Pass 2: only for labels not found in-page, allow cross-page continuation by appending head of next page
+        if next_page_image is not None:
+            lines_with_next = build_lines_with_next_head(lines)
+            for lbl in expected_labels:
+                if lbl in label_positions and label_positions[lbl]:
+                    continue
+                lbl_words = lbl.split()
+                # Attempt multiline with next-page head lines available
+                pos = try_multiline_on_lines(lines_with_next, lbl_words)
+                if pos is not None:
+                    label_positions[lbl].append(pos)
+                    continue
+                # Fallback with skipped leading words
+                for skip in range(1, min(5, len(lbl_words))):
+                    suffix = lbl_words[skip:]
+                    pos2 = try_multiline_on_lines(lines_with_next, suffix)
+                    if pos2 is not None:
+                        label_positions[lbl].append(pos2)
+                        break
 
         # Detailed label position dumps removed
 
@@ -403,23 +483,34 @@ class CheckboxExtractor:
 
     def detect_section_regions(self, pil_image, sections, label_positions, checkbox_positions, max_gap=SECTION_CB_MAX_GAP_PX):
         ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
-        lines = {}
+        try:
+            img_w, img_h = pil_image.size
+        except Exception:
+            img_w, img_h = (2000, 10000)
+        anchor_x_threshold = int(0.10 * img_w)
+
+        # Build lines with token geometry, sorted by y, tokens sorted by x
+        lines_map = {}
         for i in range(len(ocr_data["text"])):
-            word = ocr_data["text"][i].strip()
+            word = (ocr_data["text"][i] or '').strip()
             if not word:
                 continue
-            line_id = (ocr_data["block_num"][i], ocr_data["par_num"][i], ocr_data["line_num"][i])
-            if line_id not in lines:
-                lines[line_id] = {
-                    "text": word,
-                    "x": ocr_data["left"][i],
-                    "y": ocr_data["top"][i],
-                    "h": ocr_data["height"][i]
-                }
+            key = (ocr_data["block_num"][i], ocr_data["par_num"][i], ocr_data["line_num"][i])
+            tok = {
+                "text": word,
+                "x": int(ocr_data["left"][i]),
+                "y": int(ocr_data["top"][i]),
+                "w": int(ocr_data["width"][i]),
+                "h": int(ocr_data["height"][i]),
+            }
+            if key not in lines_map:
+                lines_map[key] = {"words": [tok], "y": tok["y"], "text": word}
             else:
-                lines[line_id]["text"] += " " + word
-
-        sorted_lines = sorted(lines.values(), key=lambda l: l["y"])
+                lines_map[key]["words"].append(tok)
+                lines_map[key]["text"] += " " + word
+        for ln in lines_map.values():
+            ln["words"].sort(key=lambda t: t["x"])
+        sorted_lines = sorted(lines_map.values(), key=lambda l: l["y"]) 
         checkbox_y_positions = sorted([cb["position"][1] for cb in checkbox_positions])
         section_regions = {}
 
@@ -429,6 +520,7 @@ class CheckboxExtractor:
             t = unicodedata.normalize('NFKD', text)
             t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
             t = t.replace('/', '').replace(' ', '').replace('-', '')
+            t = t.upper()
             expected_s = []
             i_mask = set()
             for idx, ch in enumerate(t):
@@ -449,15 +541,159 @@ class CheckboxExtractor:
             t = ''.join(c for c in t if c.isalpha())
             return t
 
+        # OCR-side normalization for anchor matching: strip common separators to mirror expected-side cleaning
+        # This ensures tokens like 'Surgeries/Major' can match 'Surgeries Major' or 'Surgeries-Major'.
+        def _ocr_norm_preserve_punct_upper(text: str) -> str:
+            t = unicodedata.normalize('NFKD', text)
+            # remove control chars
+            t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
+            # strip common separators used in headers
+            t = t.replace('/', '').replace(' ', '').replace('-', '')
+            return t.upper()
+
+        def _flex_startswith_upper(expected_s: str, i_mask: set[int], haystack_s: str) -> bool:
+            m = len(expected_s)
+            if m == 0:
+                return True
+            if len(haystack_s) < m:
+                return False
+            return flex_equal(expected_s, i_mask, haystack_s[:m])
+
+        base_x_tolerance = LABEL_MULTILINE_BASE_X_TOLERANCE
+        max_lookahead = LABEL_MULTILINE_MAX_LOOKAHEAD
+
+        def best_span_in_line(words, name_words):
+            # Try to match as many consecutive expected words as possible starting at each token
+            best_start = None
+            best_matched = 0
+            # Precompute concatenated expected string for merged-token OCR cases
+            exp_concat_s, exp_concat_mask = build_expected_masked_upper(' '.join(name_words))
+            for start_idx in range(len(words)):
+                tok0_clean = _ocr_norm_preserve_punct_upper(words[start_idx]["text"])
+                # Fast path: entire phrase merged into one token at the start
+                if _flex_startswith_upper(exp_concat_s, exp_concat_mask, tok0_clean):
+                    return start_idx, len(name_words)
+                matched_here = 0
+                k = start_idx
+                for lbl_idx in range(len(name_words)):
+                    if k >= len(words):
+                        break
+                    wu, w_mask = build_expected_masked_upper(name_words[lbl_idx])
+                    tok_clean = _ocr_norm_preserve_punct_upper(words[k]["text"])
+                    ok = _flex_startswith_upper(wu, w_mask, tok_clean) if lbl_idx == 0 else flex_contains(wu, w_mask, tok_clean)
+                    if ok:
+                        matched_here += 1
+                        k += 1
+                    else:
+                        break
+                if matched_here > best_matched:
+                    best_matched = matched_here
+                    best_start = start_idx
+            return best_start, best_matched
+
+        def continue_multiline_from(lines_local, i_start, start_idx, name_words, matched_here):
+            # Continue matching expected words onto subsequent line groups with x-alignment tolerance
+            curr_idx = i_start
+            curr_lbl_idx = matched_here
+            x_ref = lines_local[i_start]["words"][start_idx]["x"]
+            segments = [{
+                "line_y": int(lines_local[i_start]["words"][start_idx]["y"]),
+                "start_x": x_ref,
+                "end_x": lines_local[i_start]["words"][max(start_idx, start_idx + matched_here - 1)]["x"] + lines_local[i_start]["words"][max(start_idx, start_idx + matched_here - 1)]["w"],
+                "count": matched_here,
+                "tokens": [t["text"] for t in lines_local[i_start]["words"][start_idx: start_idx + matched_here]]
+            }]
+            lookahead_used = 0
+            while curr_lbl_idx < len(name_words) and lookahead_used < max_lookahead:
+                # find next y strictly greater than current
+                j = curr_idx + 1
+                curr_y = lines_local[curr_idx]["y"]
+                while j < len(lines_local) and lines_local[j]["y"] <= curr_y:
+                    j += 1
+                if j >= len(lines_local):
+                    break
+                next_y = lines_local[j]["y"]
+                # all sibling lines at this y
+                sibling_indices = []
+                kidx = j
+                while kidx < len(lines_local) and lines_local[kidx]["y"] == next_y:
+                    sibling_indices.append(kidx)
+                    kidx += 1
+                expected_word = name_words[curr_lbl_idx]
+                wuN, w_maskN = build_expected_masked_upper(expected_word)
+                best_line_overall_match = 0
+                best_line_overall_start = None
+                best_line_overall_idx = None
+                best_line_overall_segtoks = None
+                for li in sibling_indices:
+                    toks = lines_local[li]["words"]
+                    if not toks:
+                        continue
+                    # Prefer startswith within x tolerance
+                    candidates = [idx for idx, tok in enumerate(toks)
+                                  if abs(tok["x"] - x_ref) <= base_x_tolerance and _flex_startswith_upper(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
+                    if not candidates:
+                        candidates = [idx for idx, tok in enumerate(toks)
+                                      if _flex_startswith_upper(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
+                    if not candidates:
+                        candidates = [idx for idx, tok in enumerate(toks)
+                                      if abs(tok["x"] - x_ref) <= base_x_tolerance and flex_contains(wuN, w_maskN, _ocr_norm_preserve_punct_upper(tok["text"]))]
+                    if not candidates:
+                        continue
+                    best_line_match = 0
+                    best_line_start = None
+                    best_line_segtoks = None
+                    for ci in candidates:
+                        matched_in_line = 0
+                        k = ci
+                        while k < len(toks) and (curr_lbl_idx + matched_in_line) < len(name_words):
+                            wu2, w2_mask = build_expected_masked_upper(name_words[curr_lbl_idx + matched_in_line])
+                            ok2 = _flex_startswith_upper(wu2, w2_mask, _ocr_norm_preserve_punct_upper(toks[k]["text"])) if matched_in_line == 0 else flex_contains(wu2, w2_mask, _ocr_norm_preserve_punct_upper(toks[k]["text"]))
+                            if ok2:
+                                matched_in_line += 1
+                                k += 1
+                            else:
+                                break
+                        if matched_in_line > best_line_match:
+                            best_line_match = matched_in_line
+                            best_line_start = ci
+                            best_line_segtoks = toks[best_line_start: best_line_start + best_line_match]
+                    if best_line_match > best_line_overall_match:
+                        best_line_overall_match = best_line_match
+                        best_line_overall_start = best_line_start
+                        best_line_overall_idx = li
+                        best_line_overall_segtoks = best_line_segtoks
+                if not best_line_overall_match or best_line_overall_segtoks is None or best_line_overall_idx is None:
+                    break
+                seg_tokens = best_line_overall_segtoks
+                segments.append({
+                    "line_y": int(min(t["y"] for t in seg_tokens)),
+                    "start_x": seg_tokens[0]["x"],
+                    "end_x": seg_tokens[-1]["x"] + seg_tokens[-1]["w"],
+                    "count": best_line_overall_match,
+                    "tokens": [t["text"] for t in seg_tokens]
+                })
+                curr_lbl_idx += best_line_overall_match
+                curr_idx = best_line_overall_idx
+                x_ref = seg_tokens[0]["x"]
+                lookahead_used += 1
+            return curr_lbl_idx, segments
+
         def flex_equal(expected_s, i_mask, candidate_s):
+            """
+            Case-insensitive token equality with IL1-flexibility (when expected has uppercase 'I'),
+            mirroring response_extractor’s behavior. Candidate characters are uppercased for
+            comparison except when matching the flexible 'I' class.
+            """
             if len(expected_s) != len(candidate_s):
                 return False
             for i, (e, c) in enumerate(zip(expected_s, candidate_s)):
                 if i in i_mask and e == 'I':
+                    # Accept I/L/l/1 when expected has uppercase 'I'
                     if c not in ('I', 'L', 'l', '1'):
                         return False
                 else:
-                    if e != c:
+                    if e != c.upper():
                         return False
             return True
 
@@ -473,41 +709,47 @@ class CheckboxExtractor:
         claimed_anchor_ys = set()
         for section in sections:
             section_name = section["section_name"]
-            anchor_y = None
-            exp_s, i_mask = build_expected_masked_upper(section_name)
-            for line in sorted_lines:
-                raw_text = line["text"]
-                line_s = clean_line_preserve_case(raw_text)
-                # For very short section names (<=3 letters after cleaning), require token-level equality to avoid substring hits
-                cleaned_expected = clean_line_preserve_case(section_name)
-                if len(cleaned_expected) <= 3:
-                    # For short headers, operate on per-word tokens with letters-only cleaning
-                    tokens = [letters_only_token(tok) for tok in raw_text.split()]
-                    # Use IL1-tolerant equality at token level for short headers (e.g., 'GI')
-                    exp_short, i_mask_short = build_expected_masked_upper(letters_only_token(section_name))
-                    matched_short = False
-                    for tok in tokens:
-                        if flex_equal(exp_short, i_mask_short, tok):
-                            # Lock-out: do not reuse an anchor y already claimed by another section
-                            if line["y"] in claimed_anchor_ys:
-                                matched_short = False
-                                break
-                            anchor_y = line["y"]
-                            matched_short = True
-                            break
-                    if matched_short:
-                        break
-                else:
-                    if flex_contains(exp_s, i_mask, line_s):
-                        # Lock-out: do not reuse an anchor y already claimed by another section
-                        if line["y"] in claimed_anchor_ys:
-                            continue
-                        anchor_y = line["y"]
-                        break
-            if anchor_y is None:
+            name_words = [w for w in section_name.split() if w]
+            if not name_words:
                 print(f"[WARN] No anchor found for section '{section_name}'")
                 continue
-            # Claim this anchor y so no other section can match at the same y
+            best_candidate = None  # (matched_count, start_y, start_x)
+            best_segments = None
+            # Evaluate each line as a potential start; prefer longest match beginning within the first 10%
+            for i, line in enumerate(sorted_lines):
+                words = line.get("words", [])
+                if not words:
+                    continue
+                start_idx, matched_here = best_span_in_line(words, name_words)
+                if matched_here == 0 or start_idx is None:
+                    continue
+                start_tok = words[start_idx]
+                start_x = int(start_tok.get("x", 0))
+                start_y = int(start_tok.get("y", line.get("y", 0)))
+                # Enforce first-10% on the start token
+                if start_x > anchor_x_threshold:
+                    continue
+                # Avoid reusing an already-claimed y (header-line collisions)
+                if start_y in claimed_anchor_ys:
+                    continue
+                # Continue across following lines to match as many words as possible
+                total_matched, segments = continue_multiline_from(sorted_lines, i, start_idx, name_words, matched_here)
+                cand = (int(total_matched), start_y, start_x)
+                if best_candidate is None or cand > best_candidate:
+                    best_candidate = cand
+                    best_segments = segments
+                # Fast path: full-phrase match achieved
+                if total_matched >= len(name_words):
+                    break
+            if best_candidate is None:
+                print(f"[WARN] No anchor found for section '{section_name}'")
+                continue
+            # Enforce minimum words matched: 1 for single-word headers, 2+ for multi-word headers
+            min_required = 1 if len(name_words) == 1 else 2
+            if int(best_candidate[0]) < min_required:
+                print(f"[WARN] No anchor found for section '{section_name}'")
+                continue
+            _, anchor_y, _ = best_candidate
             claimed_anchor_ys.add(anchor_y)
 
             # Extend downward until checkbox silence
@@ -679,25 +921,133 @@ class CheckboxExtractor:
                 print(f"[ERROR] pypdfium2 fallback failed: {e2}")
                 raise
 
+        # Track remaining/complete state across pages
+        # For labels: map section -> set of remaining label strings
+        label_sections = None
+        remaining_labels_by_section = {}
+        completed_label_sections = set()
+        # For questions: map section -> list of remaining question strings (preserve duplicates and order)
+        remaining_questions_by_section = {}
+        completed_question_sections = set()
+
         for page_number, page_image in enumerate(pages, start=1):
             print(f"Processing page {page_number}")
             processed_img = self.preprocess_image(page_image)
             checkboxes, raw_img = self.detect_checkboxes(processed_img)
 
             # Only collect labels from sections that actually define them
-            label_sections = [sec for sec in sections if isinstance(sec.get("labels"), list) and sec.get("labels")]
-            all_labels = [lbl for sec in label_sections for lbl in sec["labels"]]
-            label_positions = self.get_label_positions(processed_img, all_labels)
+            if label_sections is None:
+                label_sections = [sec for sec in sections if isinstance(sec.get("labels"), list) and sec.get("labels")]
+                for sec in label_sections:
+                    remaining_labels_by_section[sec["section_name"]] = set(sec["labels"])
+            # Build the list of labels to search on this page, skipping sections already complete
+            labels_to_search = []
+            active_label_sections = []
+            for sec in label_sections:
+                name = sec["section_name"]
+                if name in completed_label_sections:
+                    continue
+                rem = remaining_labels_by_section.get(name, set())
+                if not rem:
+                    completed_label_sections.add(name)
+                    continue
+                active_label_sections.append(sec)
+                labels_to_search.extend(sorted(rem))
+            # Build next-page preprocessed image up-front for cross-page continuation
+            next_page_image_for_labels = None
+            if page_number < len(pages):
+                try:
+                    next_page_image_for_labels = self.preprocess_image(pages[page_number])
+                except Exception:
+                    next_page_image_for_labels = None
+            label_positions = self.get_label_positions(processed_img, labels_to_search, next_page_image=next_page_image_for_labels)
             section_regions = self.detect_section_regions(processed_img, sections, label_positions, checkboxes)
 
             # Per-label diagnostics removed to reduce verbosity
 
+            # Update remaining/complete sets for labels based purely on OCR detections in section regions
+            for sec in active_label_sections:
+                sname = sec["section_name"]
+                region = section_regions.get(sname)
+                if not region:
+                    continue
+                y1_effective = region["y1"] + ANCHOR_OFFSET_PX
+                y2 = region["y2"]
+                still_needed = set()
+                for lbl in remaining_labels_by_section.get(sname, set()):
+                    found_in_region = False
+                    for pos in label_positions.get(lbl, []):
+                        lx, ly = pos
+                        if y1_effective <= ly <= y2:
+                            found_in_region = True
+                            break
+                    if not found_in_region:
+                        still_needed.add(lbl)
+                remaining_labels_by_section[sname] = still_needed
+                if not still_needed:
+                    completed_label_sections.add(sname)
+
             sections_data = self.assign_checkboxes_sectionwise(
-                checkboxes, label_sections, label_positions, section_regions
+                checkboxes, active_label_sections, label_positions, section_regions
             )
 
+            # No further update needed here; we treat labels as 'found' based on OCR presence in region above
+
             # Extract free-text responses for sections that define "questions"
-            responses_data = extract_responses_from_page(processed_img, sections, section_regions, artifacts_dir=self.artifacts_dir)
+            next_page_image = None
+            if page_number < len(pages):
+                try:
+                    next_page_image = self.preprocess_image(pages[page_number])  # pages is 0-indexed; current is start=1
+                except Exception:
+                    next_page_image = None
+            # Build a filtered sections list for questions: only include sections with questions still remaining
+            if page_number == 1:
+                # Initialize remaining questions per section on first pass (keep duplicates)
+                for sec in sections:
+                    qs = sec.get("questions") or []
+                    if qs:
+                        remaining_questions_by_section[sec["section_name"]] = list(qs)
+            question_sections_active = []
+            for sec in sections:
+                sname = sec["section_name"]
+                qs = sec.get("questions") or []
+                if not qs:
+                    continue
+                if sname in completed_question_sections:
+                    continue
+                remaining_qs = remaining_questions_by_section.get(sname, [])
+                if not remaining_qs:
+                    completed_question_sections.add(sname)
+                    continue
+                # Shallow copy with reduced questions set for this page
+                sec_copy = dict(sec)
+                # Pass a copy to avoid in-loop mutation; keep original order and duplicates
+                sec_copy["questions"] = list(remaining_qs)
+                question_sections_active.append(sec_copy)
+
+            responses_data = extract_responses_from_page(
+                processed_img,
+                question_sections_active,
+                section_regions,
+                artifacts_dir=self.artifacts_dir,
+                next_page_image=next_page_image,
+            )
+
+            # Update remaining/complete sets for questions based on matches we just made
+            for sec in responses_data or []:
+                sname = sec.get("section")
+                for q in sec.get("questions", []):
+                    qt = q.get("question")
+                    rem_list = remaining_questions_by_section.get(sname, [])
+                    # Remove only a single occurrence to respect duplicates in the section definition
+                    if qt in rem_list:
+                        try:
+                            rem_list.remove(qt)
+                        except ValueError:
+                            pass
+                        remaining_questions_by_section[sname] = rem_list
+                if not remaining_questions_by_section.get(sname):
+                    completed_question_sections.add(sname)
 
             self.annotate_debug_image(raw_img, sections_data, label_positions, page_number, section_regions)
 
