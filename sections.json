@@ -23,19 +23,34 @@
     },
     {
         "section_name": "Tobacco",
-        "labels": ["Yes", "No"]
+        "labels": ["Yes", "No"],
+        "questions": [
+            "Packs/Day"
+        ]
     },
     {
         "section_name": "Alcohol",
-        "labels": ["Yes", "No"]
+        "labels": ["Yes", "No"],
+        "questions": [
+            "Drinks/Week"
+        ]
     },
     {
         "section_name": "Caffeine",
-        "labels": ["Yes", "No"]
+        "labels": ["Yes", "No"],
+        "questions": [
+            "Cups/Day"
+        ]
     },
     {
         "section_name": "Exercise",
-        "labels": ["Yes", "No"]
+        "labels": ["Yes", "No", "# of Children", "Desire More Children", "Recreational Drugs"],
+        "questions": [
+            "Days/Week",
+            "Please mention # of Children",
+            "OCCUPATION",
+            "Allergies"
+        ]
     },
     {
         "section_name": "Reason for visit/Ongoing Medical Problems",

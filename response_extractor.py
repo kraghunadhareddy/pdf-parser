@@ -1,7 +1,41 @@
 import pytesseract
+import numpy as np  # highlight fallback
+import pytesseract
+import numpy as np  # highlight fallback
+try:
+    import cv2  # type: ignore
+except Exception:  # pragma: no cover - optional dependency already in main pipeline
+    cv2 = None
 import unicodedata
+import re
 from collections import defaultdict
-from constants import ANCHOR_OFFSET_PX, LABEL_MULTILINE_BASE_X_TOLERANCE, LABEL_MULTILINE_MAX_LOOKAHEAD
+from collections import defaultdict
+from PIL import Image
+
+# Runtime debug toggle (set to True only when deep troubleshooting)
+DEBUG_VERBOSE = False
+from constants import (
+    ANCHOR_OFFSET_PX,
+    LABEL_MULTILINE_BASE_X_TOLERANCE,
+    LABEL_MULTILINE_MAX_LOOKAHEAD,
+    ANSWER_COL_GAP_PX,
+    ANSWER_PAGE_RIGHT_MARGIN_PX,
+    ANSWER_ROW_Y_TOLERANCE_PX,
+    ANSWER_MIN_LINE_HEIGHT_PX,
+    ANSWER_MAX_VERTICAL_GAP_PX,
+    ANSWER_STOP_ON_BLANK,
+    ANSWER_LEFT_MARGIN_PX,
+    ANSWER_BLANK_LINE_GAP_PX,
+    YESNO_SLIDE_OFFSETS,
+    YESNO_PROBE_MAX_BANDS,
+    YESNO_HIGHLIGHT_CONFIDENCE,
+    YESNO_INFERRED_CONFIDENCE,
+    ANSWER_CONTINUATION_MIN_DELTA_Y,
+    ANSWER_CONTINUATION_MAX_DELTA_Y,
+    OCR_PSM,
+    OCR_LANG,
+    DEBUG_ANSWER_GEOMETRY,
+)
 
 
 # -----------------------------
@@ -74,7 +108,8 @@ def _build_lines_with_geometry(pil_image, ocr_data=None):
     single-pass OCR optimization). Falls back to invoking pytesseract when not
     provided for backward compatibility.
     """
-    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+    ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT, config=ocr_cfg)
     lines = {}
     for i in range(len(data["text"])):
         word = data["text"][i].strip()
@@ -112,7 +147,8 @@ def _match_section_anchors(pil_image, sections: list[dict], ocr_data=None):
     Accepts optional precomputed OCR data for performance. If not provided,
     executes a fresh OCR call.
     """
-    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+    ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT, config=ocr_cfg)
     lines = {}
     for i in range(len(data["text"])):
         word = data["text"][i].strip()
@@ -212,7 +248,8 @@ def _match_questions_like_labels(pil_image, questions: list[str], *, ocr_data=No
         next_page_ocr_data: optional OCR dict for next page (head lines appended)
         next_page_head_lines: number of distinct y-line groups from next page to append
     """
-    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+    ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+    data = ocr_data or pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT, config=ocr_cfg)
 
     def clean_label_sequence(seq):
         # Preserve punctuation as-is; only remove control chars and spaces when concatenating
@@ -309,8 +346,20 @@ def _match_questions_like_labels(pil_image, questions: list[str], *, ocr_data=No
 
     # OCR-side normalization that preserves visible punctuation; only strips control chars and uppercases
     def _ocr_norm_preserve_punct_upper(text: str) -> str:
+        """OCR-side normalization.
+
+        Original version preserved most punctuation, but expected-side normalization
+        (in _build_expected_masked_upper) strips '/', spaces, and '-'. This caused
+        mismatches for single-token questions containing slashes (e.g., 'Packs/Day')
+        because expected becomes 'PACKSDAY' while OCR token remained 'PACKS/DAY'.
+
+        To make matching symmetric, we now remove the same trio ('/', ' ', '-') on
+        the OCR side before uppercasing, preventing false negatives for slash-joined
+        tokens without widening matching rules elsewhere.
+        """
         t = unicodedata.normalize('NFKD', text)
         t = ''.join(c for c in t if unicodedata.category(c)[0] != 'C')
+        t = t.replace('/', '').replace(' ', '').replace('-', '')
         return t.upper()
 
     def best_span_in_line(words, lbl_words):
@@ -746,7 +795,7 @@ def match_sections_and_questions(pil_image, sections: list[dict], section_region
 # -----------------------------
 def extract_responses_from_page(pil_image, sections: list, section_regions: dict | None = None,
                                 artifacts_dir: str | None = None, next_page_image=None,
-                                *, ocr_data=None, next_page_ocr_data=None):
+                                *, ocr_data=None, next_page_ocr_data=None, checkboxes=None):
     """Wrapper used by extractor to pull question anchor positions.
 
     Added performance parameters:
@@ -761,5 +810,825 @@ def extract_responses_from_page(pil_image, sections: list, section_regions: dict
         next_page_image=next_page_image,
         next_page_ocr_data=next_page_ocr_data,
     )
-    # Shape similar enough for extractor to include under "responses"
+    # --- Fallback utilities (defined inside to avoid polluting module namespace) ---
+    def _looks_yes_no_question(q_text: str) -> bool:
+        if not q_text:
+            return False
+        lower = q_text.lower()
+        # heuristic triggers: direct yes/no phrasing or opt-in verbs
+        trig = ("would you" in lower or "do you" in lower or "are you" in lower or "have you" in lower or "yes" in lower or "no" in lower)
+        return trig and lower.strip().endswith('?')
+
+    def _yellow_highlight_ocr(pil_img, box: dict):
+        """Attempt to recover short printed YES/NO under highlighter.
+        box: {x_start,y_start,x_end,y_end} from answer_window.
+        Returns cleaned_text or ''.
+        """
+        if cv2 is None:
+            return ""
+        try:
+            xs, ys, xe, ye = box["x_start"], box["y_start"], box["x_end"], box["y_end"]
+            # Expand a little vertically & horizontally
+            pad_x = 15
+            pad_y = 12
+            xs2 = max(0, xs - pad_x)
+            ys2 = max(0, ys - pad_y)
+            xe2 = xe + pad_x
+            ye2 = ye + pad_y
+            crop = pil_img.crop((xs2, ys2, xe2, ye2))
+            cv = cv2.cvtColor(np.array(crop), cv2.COLOR_RGB2BGR)
+            hsv = cv2.cvtColor(cv, cv2.COLOR_BGR2HSV)
+            # broad yellow mask
+            yellow_mask = cv2.inRange(hsv, (18, 60, 140), (40, 255, 255))
+            # neutralize highlight: set masked regions to white
+            cv[yellow_mask > 0] = (255, 255, 255)
+            gray = cv2.cvtColor(cv, cv2.COLOR_BGR2GRAY)
+            # adaptive threshold to bring out dark glyphs
+            thr = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                        cv2.THRESH_BINARY, 21, 9)
+            # slight dilation to connect thin strokes
+            kernel = np.ones((2, 2), np.uint8)
+            thr = cv2.dilate(thr, kernel, iterations=1)
+            # restrict character set to YESNO for precision
+            config = "--psm 7 -c tessedit_char_whitelist=YESNOyesno"
+            txt = pytesseract.image_to_string(thr, config=config).strip()
+            txt = txt.replace('\n', ' ').strip()
+            # normalize common OCR noise (e.g., 'YEs', 'NOO')
+            if txt.lower().startswith('yes'):
+                return 'Yes'
+            if txt.lower().startswith('no'):
+                return 'No'
+            # Extremely short outputs; sometimes returns 'Y' or 'N'
+            if txt in {'Y', 'y'}:
+                return 'Yes'
+            if txt in {'N', 'n'}:
+                return 'No'
+            return ''
+        except Exception as e:  # pragma: no cover
+            print(f"[YESNO-FALLBACK-ERROR] {e}")
+            return ""
+    # Augment with answer extraction
+    try:
+        # Build line index from OCR once here (ensure we use global OCR config for consistency)
+        ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+        data = ocr_data or pytesseract.image_to_data(
+            pil_image,
+            output_type=pytesseract.Output.DICT,
+            config=ocr_cfg,
+        )
+        lines = {}
+        for i in range(len(data["text"])):
+            word = data["text"][i].strip()
+            x = int(data["left"][i])
+            y = int(data["top"][i])
+            w = int(data["width"][i])
+            h = int(data["height"][i])
+            if not word:
+                # still record blank structure for gap detection by line grouping
+                pass
+            key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
+            if key not in lines:
+                lines[key] = {"words": [], "y": y, "h": h}
+            if word:
+                lines[key]["words"].append({"text": word, "x": x, "y": y, "w": w, "h": h})
+                lines[key]["h"] = max(lines[key]["h"], h)
+        line_list = sorted(lines.values(), key=lambda ln: ln["y"])
+        # Precompute plain text per line
+        for ln in line_list:
+            ln["text"] = " ".join(w["text"] for w in ln["words"]) if ln["words"] else ""
+
+        # Helper: find next question start x on approximately same y-band within same section
+        def compute_right_bound(section_questions, current_q):
+            cx = current_q["position"][0]
+            cy = current_q["position"][1]
+            segments = current_q.get("segments") or []
+            # Detect narrative (Medical Conditions) and allow full width for those only
+            is_narrative = False
+            try:
+                seg_tokens_lower = []
+                for seg in segments:
+                    if isinstance(seg, dict):
+                        seg_tokens_lower.extend([t.lower() for t in seg.get("tokens", [])])
+                if "medical" in seg_tokens_lower and "conditions" in seg_tokens_lower:
+                    is_narrative = True
+            except Exception:
+                pass
+            candidates = []
+            for q in section_questions:
+                if q is current_q:
+                    continue
+                qx, qy = q.get("position", [None, None])
+                if qx is None or qy is None:
+                    continue
+                if abs(qy - cy) <= ANSWER_ROW_Y_TOLERANCE_PX and qx > cx:
+                    candidates.append(qx)
+            if candidates and not is_narrative:
+                return min(candidates) - ANSWER_COL_GAP_PX
+            # Fallback: extend to page width minus margin
+            try:
+                img_w, _ = pil_image.size
+            except Exception:
+                img_w = 2000
+            return img_w - ANSWER_PAGE_RIGHT_MARGIN_PX
+
+        # Helper: gather lines of answer window
+        def collect_answer_lines(q_start_x, q_start_y, q_segments, right_x, section_bottom_y=None, question_line_token_set=None):
+            # Determine baseline start y from last segment line if multiline
+            last_seg_y = q_start_y
+            if q_segments:
+                try:
+                    last_seg_y = max(int(seg.get("line_y", last_seg_y)) for seg in q_segments if isinstance(seg, dict))
+                except Exception:
+                    pass
+            # FIXED OFFSET LOGIC (per explicit requirement):
+            # Start Y is always the last question segment line plus ANCHOR_OFFSET_PX.
+            # The answer window vertical extent is exactly one offset tall: [start_collect_y, start_collect_y + ANCHOR_OFFSET_PX].
+            # We deliberately ignore any adaptive lowering and do NOT capture inline same-line tokens.
+            start_collect_y = last_seg_y + ANCHOR_OFFSET_PX
+            band_bottom_y = start_collect_y + ANCHOR_OFFSET_PX
+            answers = []
+            # Measure vertical gap from actual last question line so immediate answers aren't skipped
+            prev_y = last_seg_y
+            last_line_y2 = None
+            captured_any = False
+            # Specialized debug for 'Medical Conditions' narrative answers (late page family history rows)
+            question_tokens_flat = []
+            for seg in (q_segments or []):
+                if isinstance(seg, dict):
+                    question_tokens_flat.extend([t.lower() for t in seg.get("tokens", [])])
+            is_medical_conditions_q = ("medical" in question_tokens_flat and "conditions" in question_tokens_flat)
+            # Detect the long reminder opt-in question (appointment reminders) for targeted debug
+            is_reminder_optin_q = False
+            if question_tokens_flat:
+                # Look for distinctive tokens from the long question
+                key_hits = 0
+                for kw in ("reminders?", "automatic", "appointment", "messages."):
+                    if kw.rstrip('?').lower().strip('.') in question_tokens_flat:
+                        key_hits += 1
+                if key_hits >= 2 and ("reminders?" in [t.rstrip('?') for t in question_tokens_flat] or "reminders" in question_tokens_flat):
+                    is_reminder_optin_q = True
+            if DEBUG_VERBOSE and is_medical_conditions_q and start_collect_y > 2500:
+                print(f"[MC] q_y={q_start_y} band={start_collect_y}-{band_bottom_y}")
+            # Precompute a simple function to guess if a line looks like a new section header (many capitalized words, long span)
+            def looks_like_header(text: str) -> bool:
+                if not text:
+                    return False
+                tokens = text.strip().split()
+                if len(tokens) <= 1:
+                    return False
+                cap_tokens = sum(1 for t in tokens if t.isupper() and len(t) >= 3)
+                # heuristics: at least half tokens uppercase and total length > 12
+                if cap_tokens >= max(2, len(tokens)//2) and sum(len(t) for t in tokens) > 12:
+                    return True
+                return False
+
+            # --- DEBUG BLOCK (TEMPORARY) ---
+            # If this looks like the pregnancy question (multi-line, specific y deltas) or any question whose offset is 1373,
+            # dump nearby OCR lines to understand why answer not captured.
+            # Removed ad-hoc pregnancy debug; rely on DEBUG_VERBOSE + targeted logging when needed.
+            # Additional window debug for reminder opt-in question
+            if DEBUG_VERBOSE and is_reminder_optin_q:
+                print(f"[REMINDER] q_y={q_start_y} band={start_collect_y}-{band_bottom_y}")
+                band_low2 = start_collect_y - 20
+                band_high2 = band_bottom_y + 20
+                for ln_dbg2 in line_list:
+                    ly2 = ln_dbg2.get("y")
+                    if ly2 is None or ly2 < band_low2 or ly2 > band_high2:
+                        continue
+                    wds2 = ln_dbg2.get("words", [])
+                    all_tokens2 = [w.get("text","") for w in wds2]
+                    in_tokens2 = [w.get("text","") for w in wds2 if q_start_x <= w.get("x",0) <= right_x]
+                    print(f"[REMINDER-INSPECT] line_y={ly2} in_tokens={in_tokens2} all={all_tokens2}")
+                # Extended sweep (broader vertical) to locate where 'Yes' might actually be
+                sweep_low = last_seg_y + 1
+                sweep_high = last_seg_y + 240  # wider than answer band
+                yesno_hits = []
+                for ln_dbg3 in line_list:
+                    ly3 = ln_dbg3.get("y")
+                    if ly3 is None or ly3 < sweep_low or ly3 > sweep_high:
+                        continue
+                    wds3 = ln_dbg3.get("words", [])
+                    if not wds3:
+                        continue
+                    all_tokens3 = [w.get("text","") for w in wds3]
+                    in_tokens3 = [w.get("text","") for w in wds3 if q_start_x <= w.get("x",0) <= right_x]
+                    if any(tok.lower() in ("yes","no","y","n") for tok in all_tokens3):
+                        yesno_hits.append((ly3, all_tokens3, in_tokens3))
+                    # Log every 60px stratum or lines that have any tokens in window
+                    if in_tokens3 or (ly3 - sweep_low) % 60 < 5:
+                        print(f"[REMINDER-SWEEP] line_y={ly3} in_tokens={in_tokens3} all={all_tokens3}")
+                if yesno_hits:
+                    for hit_y, hit_all, hit_in in yesno_hits:
+                        print(f"[REMINDER-HIT] y={hit_y} tokens={hit_all} in_window={hit_in}")
+                else:
+                    print(f"[REMINDER-HIT] none_found within_y={sweep_low}-{sweep_high}")
+            # --- END DEBUG BLOCK ---
+            # Inline same-line capture intentionally disabled under fixed-offset rule.
+            # Phase 1: Band capture (strictly within initial fixed window)
+            left_bound = max(0, q_start_x - ANSWER_LEFT_MARGIN_PX)
+            captured_line_ys: list[int] = []
+            for ln in line_list:
+                ly = ln.get("y")
+                if ly is None or ly <= last_seg_y:
+                    continue
+                if ly < start_collect_y or ly > band_bottom_y:
+                    continue
+                words = ln.get("words", [])
+                window_tokens = [w.get("text", "") for w in words if left_bound <= w.get("x", 0) <= right_x]
+                if window_tokens:
+                    answers.append(" ".join(t for t in window_tokens if t))
+                    captured_any = True
+                    captured_line_ys.append(ly)
+                    try:
+                        h = ln.get("h") or (max((wd.get("h", 0) for wd in words), default=0)) or 0
+                    except Exception:
+                        h = 0
+                    last_line_y2 = ly + h
+                # (debug capture removed)
+                if is_medical_conditions_q and window_tokens:
+                    print(f"[MC-CAPTURE] band_line_y={ly} tokens={window_tokens}")
+                if is_reminder_optin_q and window_tokens:
+                    print(f"[REMINDER-CAPTURE] y={ly} tokens={window_tokens}")
+            # New continuation rule (replaces discrete +40px step probing):
+            # If an answer line was found, define first answer baseline y_answer as the
+            # minimum captured line y. Then look for additional wrapped lines whose
+            # baseline y satisfies: y > y_answer + 10 and y <= y_answer + 50.
+            # Capture all qualifying lines in that range (still confined to the
+            # same horizontal window) in ascending order. This targets natural
+            # immediate wraps that occur just below the initial band without
+            # waiting a full ANCHOR_OFFSET_PX jump.
+            if captured_any and captured_line_ys:
+                y_answer = min(captured_line_ys)
+                cont_start = y_answer + ANSWER_CONTINUATION_MIN_DELTA_Y
+                cont_end = y_answer + ANSWER_CONTINUATION_MAX_DELTA_Y
+                for ln2 in line_list:
+                    ly2 = ln2.get("y")
+                    if ly2 is None:
+                        continue
+                    if ly2 <= y_answer:  # never go back upwards or reuse same baseline
+                        continue
+                    if ly2 <= cont_start:
+                        continue
+                    if ly2 > cont_end:
+                        break
+                    if ly2 in captured_line_ys:
+                        continue  # already captured inside initial band
+                    words2 = ln2.get("words", [])
+                    c_tokens = [w.get("text", "") for w in words2 if left_bound <= w.get("x", 0) <= right_x]
+                    if not c_tokens:
+                        continue
+                    # Skip if this line's token sequence exactly matches any question line tokens (prevents grabbing next question row)
+                    if question_line_token_set:
+                        joined_lower = " ".join(c_tokens).strip().lower()
+                        if joined_lower in question_line_token_set:
+                            if DEBUG_VERBOSE:
+                                print(f"[ANS-CONT-SKIP-Q] y={ly2} tokens={c_tokens}")
+                            continue
+                    answers.append(" ".join(t for t in c_tokens if t))
+                    captured_line_ys.append(ly2)
+                    if DEBUG_VERBOSE:
+                        print(f"[ANS-CONT] y={ly2} tokens={c_tokens} window=({left_bound},{right_x}) base={y_answer} range=({cont_start},{cont_end})")
+            # Final answer assembly: previously lines were joined with '\n'. Per new requirement,
+            # join multi-line captures into a single line separated by spaces only.
+            if answers:
+                cleaned_lines = [" ".join(a.split()) for a in answers if a]
+                # Deduplicate identical consecutive lines (e.g., Likert option captured twice: 'Not at all')
+                deduped_lines: list[str] = []
+                for cl in cleaned_lines:
+                    if not deduped_lines or deduped_lines[-1] != cl:
+                        deduped_lines.append(cl)
+                # Additionally, if the entire concatenated text is an exact double repeat of the first half, collapse it.
+                # This guards against two identical lines separated only by the join operation producing 'X X'.
+                if len(deduped_lines) == 2 and deduped_lines[0] == deduped_lines[1]:
+                    deduped_lines = [deduped_lines[0]]
+                ans_text = " ".join(deduped_lines).strip()
+            else:
+                ans_text = ""
+            # Dynamically extend the answer window's vertical end if we captured continuation
+            # lines beyond the initial fixed band. This prevents the later strict horizontal
+            # pruning (which re-OCRs only inside y_start..y_end) from discarding trailing
+            # continuation tokens that we logically accepted above.
+            dynamic_y_end = band_bottom_y
+            if captured_line_ys:
+                # Estimate per-line height: use last_line_y2 - last captured baseline if available
+                try:
+                    last_captured_y = max(captured_line_ys)
+                    # Find the line object to get its height
+                    last_ln = next((ln for ln in line_list if ln.get("y") == last_captured_y), None)
+                    last_h = 0
+                    if last_ln:
+                        try:
+                            last_h = int(last_ln.get("h") or 0)
+                        except Exception:
+                            last_h = 0
+                    # Only extend if the last captured line baseline sits below band_bottom_y
+                    if last_captured_y > band_bottom_y:
+                        dynamic_y_end = last_captured_y + max(last_h, 0)
+                except Exception:
+                    pass
+            # Word-level scan of the exact answer window for the reminder opt-in question
+            if is_reminder_optin_q:
+                try:
+                    if DEBUG_VERBOSE and is_reminder_optin_q:
+                        print(f"[REMINDER] window=({q_start_x},{right_x},{start_collect_y},{dynamic_y_end})")
+                    window_word_count = 0
+                    for ln_scan in line_list:
+                        words_scan = ln_scan.get("words", [])
+                        if not words_scan:
+                            continue
+                        for w in words_scan:
+                            wx = w.get("x", -1)
+                            wy = w.get("y", -1)
+                            wh = w.get("h", 0) or 0
+                            if wx is None or wy is None:
+                                continue
+                            if q_start_x <= wx <= right_x and start_collect_y <= wy <= dynamic_y_end:
+                                window_word_count += 1
+                                print(f"[REMINDER-WINDOW-WORD] text='{w.get('text','')}' x={wx} y={wy} h={wh}")
+                    if window_word_count == 0:
+                        print("[REMINDER-WINDOW-EMPTY] no_words_in_window")
+                except Exception as e:
+                    if DEBUG_VERBOSE:
+                        print(f"[REMINDER-WINDOW-ERROR] {e}")
+            # Under fixed band rule, y_end (window) remains band_bottom_y regardless of text extension.
+            # Final answer debug removed (answers are in JSON). Enable here if needed.
+            return ans_text, start_collect_y, dynamic_y_end
+
+        # Iterate sections and attach answers
+        # Precompute a set of lowercased token sequences for each question's own line(s) per section
+        for sec in matches:
+            qlist = sec.get("questions", [])
+            # Determine section vertical bottom limit if region info was passed in
+            sec_region_bottom = None
+            if section_regions and isinstance(section_regions, dict):
+                reg = section_regions.get(sec.get("section")) if sec.get("section") else None
+                if reg and isinstance(reg, dict):
+                    y2 = reg.get("y2")
+                    if isinstance(y2, (int, float)):
+                        sec_region_bottom = int(y2)
+            # Build token sequence set for this section's question lines
+            question_line_token_set = set()
+            for q_line in qlist:
+                for seg in (q_line.get("segments") or []):
+                    if isinstance(seg, dict):
+                        toks = [t.lower() for t in seg.get("tokens", []) if t]
+                        if toks:
+                            question_line_token_set.add(" ".join(toks))
+            for q in qlist:
+                q_start_x, q_start_y = q.get("position", [None, None])
+                if q_start_x is None:
+                    continue
+                right_bound = compute_right_bound(qlist, q)
+                ans_text, win_y1, win_y2 = collect_answer_lines(
+                    q_start_x,
+                    q_start_y,
+                    q.get("segments"),
+                    right_bound,
+                    section_bottom_y=sec_region_bottom,
+                    question_line_token_set=question_line_token_set,
+                )
+                # Store the answer window with the left margin applied (mirrors capture logic using left_bound)
+                # This avoids clipping the first glyph during later strict horizontal pruning re-OCR (e.g., 'j' -> 'i').
+                expanded_x_start = max(0, int(q_start_x) - ANSWER_LEFT_MARGIN_PX)
+                q["answer_window"] = {
+                    "x_start": expanded_x_start,
+                    "y_start": int(win_y1),
+                    "x_end": int(right_bound),
+                    "y_end": int(win_y2),
+                }
+                if DEBUG_ANSWER_GEOMETRY:
+                    print(f"[ANS-GEOM] q='{(q.get('question') or '')[:40]}' window=({expanded_x_start},{win_y1},{right_bound},{win_y2}) ans='{(ans_text or '')[:60]}'")
+                if ans_text:
+                    q["answer"] = ans_text
+            # Pass 1.5: highlight fallback OCR for empty yes/no windows
+            for q in qlist:
+                try:
+                    if q.get("answer"):
+                        continue
+                    aw = q.get("answer_window")
+                    if not aw:
+                        continue
+                    q_text = q.get("question", "")
+                    if not _looks_yes_no_question(q_text):
+                        continue
+                    # Attempt highlight fallback extraction
+                    recovered = _yellow_highlight_ocr(pil_image, aw)
+                    if recovered in ("Yes", "No"):
+                        q["answer"] = recovered
+                        q["answer_inferred"] = False
+                        q["answer_method"] = "highlight_fallback"
+                        print(f"[YESNO-FALLBACK] recovered='{recovered}' q='{q_text[:40]}...' window={aw}")
+                        print(f"[YESNO] recovered='{recovered}' method=base")
+                    else:
+                        print(f"[YESNO-FALLBACK] no_recovery q='{q_text[:40]}...' window={aw}")
+                        if DEBUG_VERBOSE:
+                            print(f"[YESNO] base_no_recovery q='{q_text[:40]}...'")
+                        # Sliding offset probes (upwards/nearby) in case the short 'Yes'/'No' sits closer than fixed offset
+                        try:
+                            segs = q.get("segments") or []
+                            last_seg_y = None
+                            for s in segs:
+                                ly = s.get("line_y")
+                                if isinstance(ly, (int, float)):
+                                    last_seg_y = ly if last_seg_y is None else max(last_seg_y, ly)
+                            band_h = aw["y_end"] - aw["y_start"]
+                            if last_seg_y is not None and band_h > 0 and not q.get("answer"):
+                                # Use configured slide offsets; include band_h if not already present
+                                slide_offsets = list(YESNO_SLIDE_OFFSETS)
+                                if band_h not in slide_offsets:
+                                    slide_offsets.append(band_h)
+                                slide_offsets = sorted(slide_offsets)
+                                img_h = pil_image.height
+                                for idx, off in enumerate(slide_offsets):
+                                    y1 = int(last_seg_y + off)
+                                    y2 = y1 + band_h
+                                    if y2 > img_h:
+                                        break
+                                    slide_box = {
+                                        "x_start": aw["x_start"],
+                                        "y_start": y1,
+                                        "x_end": aw["x_end"],
+                                        "y_end": y2,
+                                    }
+                                    rec_slide = _yellow_highlight_ocr(pil_image, slide_box)
+                                    if rec_slide in ("Yes", "No"):
+                                        q["answer"] = rec_slide
+                                        q["answer_inferred"] = False
+                                        q["answer_method"] = f"highlight_slide_{off}"
+                                        q["answer_confidence"] = YESNO_HIGHLIGHT_CONFIDENCE
+                                        print(f"[YESNO-SLIDE] recovered='{rec_slide}' off={off} band={y1}-{y2}")
+                                        print(f"[YESNO] recovered='{rec_slide}' method=slide off={off}")
+                                        break
+                                    else:
+                                        print(f"[YESNO-SLIDE] miss off={off} band={y1}-{y2} rec='{rec_slide}'")
+                                        if DEBUG_VERBOSE:
+                                            print(f"[YESNO] slide_miss off={off}")
+                        except Exception as e_slide:  # pragma: no cover
+                            print(f"[YESNO-SLIDE-ERROR] {e_slide}")
+                            if DEBUG_VERBOSE:
+                                print(f"[YESNO-SLIDE-ERROR] {e_slide}")
+                        # Vertical expansion probes (downward) only if still empty
+                        if not q.get("answer"):
+                            band_h = aw["y_end"] - aw["y_start"]
+                            max_probes = YESNO_PROBE_MAX_BANDS
+                            for probe_idx in range(1, max_probes + 1):
+                                if q.get("answer"):
+                                    break
+                                probe_y1 = aw["y_start"] + probe_idx * band_h
+                                probe_y2 = probe_y1 + band_h
+                                probe_box = {
+                                    "x_start": aw["x_start"],
+                                    "y_start": probe_y1,
+                                    "x_end": aw["x_end"],
+                                    "y_end": probe_y2,
+                                }
+                                rec2 = _yellow_highlight_ocr(pil_image, probe_box)
+                                if rec2 in ("Yes", "No"):
+                                    q["answer"] = rec2
+                                    q["answer_inferred"] = False
+                                    q["answer_method"] = f"highlight_probe_{probe_idx}"
+                                    q["answer_confidence"] = YESNO_HIGHLIGHT_CONFIDENCE
+                                    print(f"[YESNO-PROBE] idx={probe_idx} recovered='{rec2}' band={probe_y1}-{probe_y2}")
+                                    print(f"[YESNO] recovered='{rec2}' method=probe idx={probe_idx}")
+                                    break
+                                else:
+                                    print(f"[YESNO-PROBE] idx={probe_idx} no_hit band={probe_y1}-{probe_y2} rec='{rec2}'")
+                                    if DEBUG_VERBOSE:
+                                        print(f"[YESNO] probe_miss idx={probe_idx}")
+                        # Optional: save diagnostic crops if still empty
+                        if not q.get("answer") and artifacts_dir:
+                            try:
+                                import os
+                                os.makedirs(artifacts_dir, exist_ok=True)
+                                diag_base = os.path.join(artifacts_dir, "yesno_diag")
+                                for probe_idx in range(0, (YESNO_PROBE_MAX_BANDS if not q.get("answer") else 0) + 1):
+                                    if probe_idx == 0:
+                                        y1, y2 = aw["y_start"], aw["y_end"]
+                                    else:
+                                        y1 = aw["y_start"] + probe_idx * band_h
+                                        y2 = y1 + band_h
+                                    crop = pil_image.crop((aw["x_start"], y1, aw["x_end"], y2))
+                                    crop.save(f"{diag_base}_probe{probe_idx}.png")
+                                print(f"[YESNO-PROBE] saved_crops prefix={diag_base}_probe*.png")
+                                if DEBUG_VERBOSE:
+                                    print(f"[YESNO] saved_crops prefix={diag_base}_probe*.png")
+                            except Exception as e2:  # pragma: no cover
+                                print(f"[YESNO-PROBE-ERROR] save_crops {e2}")
+                                if DEBUG_VERBOSE:
+                                    print(f"[YESNO-PROBE-ERROR] save_crops {e2}")
+                    if DEBUG_VERBOSE:
+                        print(f"[YESNO-FALLBACK-ERROR] {e}")
+                except Exception as e:
+                    print(f"[YESNO-FALLBACK-ERROR] {e}")
+            # Second pass: adjust x_end to ensure no overlap into a subsequent question column
+            # If a window's x_end would intrude into another question's x_start (same horizontal row band), trim it.
+            for q in qlist:
+                try:
+                    aw = q.get("answer_window")
+                    if not aw:
+                        continue
+                    qx = aw.get("x_start")
+                    q_end = aw.get("x_end")
+                    qy = q.get("position", [0, 0])[1]
+                    if qx is None or q_end is None:
+                        continue
+                    min_end = q_end
+                    for other in qlist:
+                        if other is q:
+                            continue
+                        ox, oy = other.get("position", [None, None])
+                        if ox is None:
+                            continue
+                        if ox <= qx:
+                            continue
+                        # Same row (allow a slightly wider tolerance) so that columns on the same horizontal band constrain width
+                        if abs(oy - qy) <= ANSWER_ROW_Y_TOLERANCE_PX * 2:
+                            candidate = ox - ANSWER_COL_GAP_PX
+                            if candidate < min_end and candidate >= qx:
+                                min_end = candidate
+                    if min_end < q_end:
+                        aw["x_end"] = max(qx, min_end)
+                except Exception:
+                    pass
+    except Exception:
+        # Silently continue; answer field will just be absent
+        pass
+    # Global pass: ensure no answer_window overlaps any other answer_window on the same horizontal row (across sections)
+    try:
+        # Collect all questions with windows
+        all_entries = []  # list of (question_dict, y, x_start)
+        for sec in matches:
+            for q in sec.get("questions", []):
+                aw = q.get("answer_window")
+                pos = q.get("position", [None, None])
+                if aw and pos and pos[0] is not None and pos[1] is not None:
+                    all_entries.append((q, int(pos[1]), int(aw.get("x_start", pos[0]))))
+        # Group by approximate row using expanded tolerance
+        all_entries.sort(key=lambda t: t[1])
+        groups = []
+        for entry in all_entries:
+            placed = False
+            for g in groups:
+                # compare with first element's y in group
+                if abs(g[0][1] - entry[1]) <= ANSWER_ROW_Y_TOLERANCE_PX * 2:
+                    g.append(entry)
+                    placed = True
+                    break
+            if not placed:
+                groups.append([entry])
+        # For each group, sort by x_start and trim overlaps
+        for g in groups:
+            g.sort(key=lambda t: t[2])
+            for i in range(len(g) - 1):
+                q_curr, y_curr, x_curr = g[i]
+                q_next, y_next, x_next = g[i + 1]
+                aw_curr = q_curr.get("answer_window")
+                aw_next = q_next.get("answer_window")
+                if not aw_curr or not aw_next:
+                    continue
+                x_end_curr = aw_curr.get("x_end")
+                if x_end_curr is None:
+                    continue
+                # If current window intrudes into next window's start, trim it to (next_start - ANSWER_COL_GAP_PX)
+                if x_end_curr >= x_next:
+                    new_end = x_next - ANSWER_COL_GAP_PX
+                    if new_end < aw_curr.get("x_start", x_curr):
+                        new_end = aw_curr.get("x_start", x_curr)
+                    aw_curr["x_end"] = new_end
+
+        # Row-group cleanup (tolerant):
+        # Some multi-column rows have slightly different y_start values (few px) due to OCR variance.
+        # We cluster answer windows whose y_start are within tolerance, then collapse unintended multi-line
+        # answers for non-narrative questions so they don't swallow the first line of the next column.
+        try:
+            # Gather (q, y_start)
+            entries = []
+            for sec in matches:
+                for q in sec.get("questions", []):
+                    aw = q.get("answer_window")
+                    if aw and isinstance(aw.get("y_start"), int):
+                        entries.append((q, aw.get("y_start")))
+            entries.sort(key=lambda t: t[1])
+            grouped: list[list[tuple]] = []
+            for q, y in entries:
+                placed = False
+                for g in grouped:
+                    if abs(g[0][1] - y) <= ANSWER_ROW_Y_TOLERANCE_PX * 2:  # broaden tolerance
+                        g.append((q, y))
+                        placed = True
+                        break
+                if not placed:
+                    grouped.append([(q, y)])
+            for g in grouped:
+                if len(g) <= 1:
+                    continue  # single column row
+                # multi-column row -> enforce single line unless narrative
+                for q, y in g:
+                    ans = q.get("answer")
+                    if not ans or "\n" not in ans:
+                        continue
+                    # Narrative detection (Medical Conditions)
+                    try:
+                        seg_tokens_lower = []
+                        for seg in (q.get("segments") or []):
+                            if isinstance(seg, dict):
+                                seg_tokens_lower.extend([t.lower() for t in seg.get("tokens", [])])
+                        is_narrative = ("medical" in seg_tokens_lower and "conditions" in seg_tokens_lower)
+                    except Exception:
+                        is_narrative = False
+                    if is_narrative:
+                        continue  # preserve
+                    first_line = ans.split("\n", 1)[0].strip()
+                    q["answer"] = first_line
+                    aw = q.get("answer_window")
+                    if aw:
+                        aw["y_end"] = aw.get("y_start", y)  # collapse vertically
+        except Exception:
+            pass
+    except Exception:
+        pass
+    # STRICT HORIZONTAL PRUNING: remove any tokens accidentally concatenated that lie outside stored x window
+    try:
+        for sec in matches:
+            for q in sec.get("questions", []):
+                aw = q.get("answer_window")
+                ans = q.get("answer")
+                if not aw or not ans:
+                    continue
+                x0 = aw.get("x_start"); x1 = aw.get("x_end")
+                y0 = aw.get("y_start"); y1 = aw.get("y_end")
+                if None in (x0, x1, y0, y1):
+                    continue
+                try:
+                    from PIL import Image as _Image  # noqa: F401
+                    import pytesseract as _pt
+                    ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+                    crop = pil_image.crop((int(x0), int(y0), int(x1), int(y1)))
+                    data = _pt.image_to_data(crop, output_type=_pt.Output.DICT, config=ocr_cfg)
+                    kept_tokens = [data["text"][i].strip() for i in range(len(data["text"])) if data["text"][i].strip()]
+                    if not kept_tokens:
+                        continue
+                    orig_tokens = ans.split()
+                    removed = [tok for tok in orig_tokens if tok not in kept_tokens]
+                    # Heuristic: don't replace if new tokens introduce evident OCR degradations (qmail->gmail, Davs->Days variants)
+                    degraded = False
+                    joined_new = " ".join(kept_tokens)
+                    joined_orig = ans
+                    # If original contains 'gmail' and new contains 'qmail', treat as degradation
+                    if 'gmail' in joined_orig.lower() and 'qmail' in joined_new.lower():
+                        degraded = True
+                    # If original contains 'Days' and new contains 'Davs' treat as degradation
+                    if 'days' in joined_orig.lower() and 'davs' in joined_new.lower():
+                        degraded = True
+                    # Only replace if we actually pruned something AND quality not degraded
+                    if removed and not degraded:
+                        q["answer"] = " ".join(kept_tokens)
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    # Post-processing: attempt checkbox-based inference for specific questions (e.g., reminder opt-in)
+    try:
+        if checkboxes:
+            # Build a light index of checkboxes by y proximity for quick scan
+            cb_list = [cb for cb in checkboxes if isinstance(cb, dict) and cb.get("position")]
+            # Heuristic mapping: for a YES/NO pair, assume left -> Yes, right -> No (document if reversed later)
+            for sec in matches:
+                for q in sec.get("questions", []):
+                    if q.get("answer"):
+                        continue  # already has textual answer
+                    segments = q.get("segments") or []
+                    # Derive a flattened token list (lowercased) from segments to identify the reminder question
+                    tokens_flat = []
+                    for seg in segments:
+                        if isinstance(seg, dict):
+                            tokens_flat.extend([t.lower() for t in seg.get("tokens", [])])
+                    if not tokens_flat:
+                        continue
+                    # Reuse earlier detection: look for at least two distinctive keywords
+                    key_hits = 0
+                    for kw in ("reminders?", "automatic", "appointment", "messages."):
+                        base_kw = kw.rstrip('?').rstrip('.').lower()
+                        if base_kw in tokens_flat or kw.rstrip('?').rstrip('.').lower() in tokens_flat:
+                            key_hits += 1
+                    is_reminder = key_hits >= 2 and ("reminders" in tokens_flat or any(t.startswith("reminder") for t in tokens_flat))
+                    if not is_reminder:
+                        continue
+                    # Debug: enumerate nearby checkboxes for analysis
+                    try:
+                        dbg_band_low = (q.get("position", [0,0])[1] or 0) - 200
+                        dbg_band_high = (q.get("position", [0,0])[1] or 0) + 400
+                        dbg_cbs = [cb for cb in cb_list if dbg_band_low <= cb.get("position", [0,0,0,0])[1] <= dbg_band_high]
+                        print(f"[REMINDER-INFER-DEBUG] q_y={q.get('position',[0,0])[1]} last_seg_y_candidate scan_n={len(dbg_cbs)}")
+                        for dcb in dbg_cbs:
+                            print(f"[REMINDER-INFER-CB] pos={dcb.get('position')} status={dcb.get('status')} conf={dcb.get('confidence')}")
+                    except Exception:
+                        pass
+                    # Compute anchor y using last segment line_y if present
+                    last_seg_y = None
+                    for seg in segments:
+                        if isinstance(seg, dict) and seg.get("line_y") is not None:
+                            ly = seg.get("line_y")
+                            if last_seg_y is None or ly > last_seg_y:
+                                last_seg_y = ly
+                    if last_seg_y is None:
+                        # fallback to question position y
+                        last_seg_y = q.get("position", [0, 0])[1]
+                    # Collect candidate checkboxes within vertical band around last segment
+                    V_TOL_TOP = 20
+                    V_TOL_BOTTOM = 70  # allow some space below if boxes sit slightly lower
+                    y_low = last_seg_y - V_TOL_TOP
+                    y_high = last_seg_y + V_TOL_BOTTOM
+                    # Horizontal window: start near question x_start - small margin to page right
+                    qx = q.get("position", [0, 0])[0] or 0
+                    # We don't know exact page width here; rely on max of checkbox x positions
+                    max_cb_x = max((cb["position"][0] for cb in cb_list), default=qx + 200)
+                    # Filter checkboxes in band
+                    nearby = []
+                    for cb in cb_list:
+                        cx, cy, cw, ch = cb.get("position")
+                        if y_low <= cy <= y_high:
+                            nearby.append(cb)
+                    # Sort left -> right
+                    nearby.sort(key=lambda c: c["position"][0])
+                    # Heuristic: choose first two distinct-x boxes as the YES/NO pair
+                    pair = []
+                    seen_x = set()
+                    for cb in nearby:
+                        x = cb["position"][0]
+                        if all(abs(x - ex) >= 5 for ex in seen_x):
+                            pair.append(cb)
+                            seen_x.add(x)
+                        if len(pair) == 2:
+                            break
+                    if len(pair) != 2:
+                        # Not enough boxes to infer
+                        print(f"[REMINDER-INFER] insufficient_pair candidates={len(pair)} nearby={len(nearby)} y_band=({y_low},{y_high})")
+                        continue
+                    # Determine ticked states
+                    statuses = [cb.get("status") for cb in pair]
+                    ticked_indices = [i for i,s in enumerate(statuses) if s == "ticked"]
+                    inferred_answer = None
+                    reason = None
+                    if len(ticked_indices) == 1:
+                        # Mapping assumption: left (index 0) => Yes, right (index 1) => No
+                        inferred_answer = "Yes" if ticked_indices[0] == 0 else "No"
+                        reason = f"single_ticked_index={ticked_indices[0]}"
+                    elif len(ticked_indices) == 2:
+                        # Both ticked - ambiguous; represent as 'Yes' (conservative) but flag ambiguity
+                        inferred_answer = "Yes"
+                        reason = "both_ticked"
+                    else:  # none ticked
+                        inferred_answer = None
+                        reason = "none_ticked"
+                    if inferred_answer:
+                        q["answer"] = inferred_answer
+                        q["answer_inferred"] = True
+                        q["answer_source"] = "checkbox"
+                        q["answer_confidence"] = 0.6 if reason == "single_ticked_index=0" else 0.5
+                        print(f"[REMINDER-INFER] y_anchor={last_seg_y} boxes={[cb['position'] for cb in pair]} statuses={statuses} -> answer={inferred_answer} reason={reason}")
+                    else:
+                        print(f"[REMINDER-INFER] y_anchor={last_seg_y} boxes={[cb['position'] for cb in pair]} statuses={statuses} -> no_inference ({reason})")
+    except Exception as e:
+        print(f"[REMINDER-INFER-ERROR] {e}")
+    # Secondary inference: if provider question is answered, infer 'Yes' for prior opt-in question
+    try:
+        for sec in matches:
+            qs = sec.get("questions", [])
+            for i, q in enumerate(qs):
+                text = q.get("question", "").lower()
+                if "appointment" in text and "reminder" in text and not q.get("answer"):
+                    # Look ahead to next question for provider
+                    if i + 1 < len(qs):
+                        next_q = qs[i+1]
+                        next_text = (next_q.get("question") or "").lower()
+                        if next_q.get("answer") and next_text.startswith("if yes"):
+                            q["answer"] = "Yes"
+                            q["answer_inferred"] = True
+                            q["answer_source"] = "followup_inference"
+                            q["answer_confidence"] = 0.8
+                            print(f"[REMINDER-INFER-FOLLOWUP] Inferred 'Yes' based on answered follow-up provider question at index {i+1}")
+    except Exception as e:
+        print(f"[REMINDER-INFER-FOLLOWUP-ERROR] {e}")
+    # Field-specific sanitization (lightweight, post-pruning)
+    try:
+        zip_re = re.compile(r"^\d{5}(-\d{4})?$")
+        for sec in matches:
+            for q in sec.get("questions", []):
+                qtext = (q.get("question") or "").lower()
+                ans = q.get("answer")
+                if not ans:
+                    continue
+                # Zip Code: keep only first ZIP-looking token if extra tokens (e.g., leaked email) present
+                if "zip" in qtext and "code" in qtext:
+                    tokens = ans.split()
+                    if tokens:
+                        # find first token that matches zip pattern
+                        for tok in tokens:
+                            if zip_re.match(tok):
+                                if tok != ans:
+                                    q["answer"] = tok
+                                break
+    except Exception:
+        pass
     return matches

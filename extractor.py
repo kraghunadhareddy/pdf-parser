@@ -28,6 +28,15 @@ from constants import (
     SECTION_X1,
     SECTION_X2,
     SECTION_BOTTOM_BUFFER_PX,
+    OCR_PSM,
+    OCR_LANG,
+    OCR_ENABLE_PREPROCESS,
+    PREPROC_UNSHARP_RADIUS,
+    PREPROC_UNSHARP_AMOUNT,
+    PREPROC_CLAHE,
+    PREPROC_CLAHE_CLIP,
+    PREPROC_CLAHE_TILE,
+    DEBUG_ANSWER_GEOMETRY,
 )
 try:
     import pypdfium2 as pdfium  # optional fallback renderer
@@ -98,10 +107,34 @@ class CheckboxExtractor:
 
     def preprocess_image(self, image):
         image = image.convert("RGB")
-        image = image.filter(ImageFilter.SHARPEN)
-        enhancer = ImageEnhance.Contrast(image)
-        image = enhancer.enhance(1.2)
-        return image
+        if not OCR_ENABLE_PREPROCESS:
+            return image
+        # Base sharpen / contrast
+        img = image.filter(ImageFilter.SHARPEN)
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.15)
+        # Convert to OpenCV for optional CLAHE
+        try:
+            if PREPROC_CLAHE and cv2 is not None:
+                cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2LAB)
+                l, a, b = cv2.split(cv)
+                clahe = cv2.createCLAHE(clipLimit=PREPROC_CLAHE_CLIP, tileGridSize=(PREPROC_CLAHE_TILE, PREPROC_CLAHE_TILE))
+                l2 = clahe.apply(l)
+                merged = cv2.merge([l2, a, b])
+                cv_rgb = cv2.cvtColor(merged, cv2.COLOR_LAB2RGB)
+                img = Image.fromarray(cv_rgb)
+        except Exception:
+            pass
+        # Mild unsharp mask (manual) - since Pillow's ImageFilter.UnsharpMask may not allow fine grain control w/o import
+        try:
+            arr = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
+            blur = cv2.GaussianBlur(arr, (0,0), PREPROC_UNSHARP_RADIUS)
+            sharp = cv2.addWeighted(arr, PREPROC_UNSHARP_AMOUNT, blur, 1-PREPROC_UNSHARP_AMOUNT, 0)
+            # Recombine into RGB
+            img = Image.fromarray(cv2.cvtColor(sharp, cv2.COLOR_GRAY2RGB))
+        except Exception:
+            pass
+        return img
 
     def match_template(self, image_gray, template, label):
         result = cv2.matchTemplate(image_gray, template, cv2.TM_CCOEFF_NORMED)
@@ -178,7 +211,8 @@ class CheckboxExtractor:
         import re
 
         if ocr_data is None:
-            ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+            ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+            ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT, config=ocr_cfg)
         label_positions = defaultdict(list)
 
         def normalize_text(text):
@@ -501,7 +535,8 @@ class CheckboxExtractor:
                                max_gap=SECTION_CB_MAX_GAP_PX, ocr_data=None):
         # Accept precomputed OCR data to avoid duplicate full-page OCR calls.
         if ocr_data is None:
-            ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT)
+            ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+            ocr_data = pytesseract.image_to_data(pil_image, output_type=pytesseract.Output.DICT, config=ocr_cfg)
         try:
             img_w, img_h = pil_image.size
         except Exception:
@@ -1059,6 +1094,7 @@ class CheckboxExtractor:
                 next_page_image=next_page_image,
                 ocr_data=ocr_data_curr,
                 next_page_ocr_data=next_page_ocr_for_responses,
+                checkboxes=checkboxes,
             )
 
             # Update remaining/complete sets for questions based on matches we just made
@@ -1200,6 +1236,8 @@ def main():
     parser.add_argument("--config", help="Path to config.json (optional)")
     parser.add_argument("--artifacts", help="Directory for intermediate artifacts (debug images, crops). Defaults to 'artifacts' in CWD or config.artifacts")
     parser.add_argument("--check", action="store_true", help="Only check environment/dependencies and exit")
+    parser.add_argument("--diagnostics", action="store_true", help="Alias for --check (deprecated)")
+    parser.add_argument("--debug-verbose", action="store_true", help="Enable verbose internal debug logging")
     args = parser.parse_args()
 
     # Reload config if a custom path is provided
@@ -1231,7 +1269,7 @@ def main():
         raise SystemExit(f"Missing required inputs: {', '.join(missing)}")
 
     # Optional environment check mode
-    if args.check:
+    if args.check or args.diagnostics:
         print("[CHECK] Python packages present: pdf2image, pytesseract, opencv-python, Pillow, numpy")
         try:
             from pdf2image import pdfinfo_from_path  # noqa
@@ -1261,6 +1299,14 @@ def main():
         artifacts_dir=artifacts_dir
     )
 
+    if args.debug_verbose:
+        try:
+            import response_extractor as _re
+            if hasattr(_re, 'DEBUG_VERBOSE'):
+                _re.DEBUG_VERBOSE = True
+                print("[DEBUG] Enabled DEBUG_VERBOSE in response_extractor")
+        except Exception:
+            pass
     print(f"Starting extraction for: {args.pdf}")
     data = extractor.extract_pdf_with_sections(args.pdf, sections_path)
 
