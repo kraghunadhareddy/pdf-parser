@@ -1,0 +1,221 @@
+[
+    {
+        "section_name": "Please check those which you have or have had",
+        "labels": ["None/ NA", "Arthritis", "Blood Disorder", "Cancer",
+                    "Diabetes", "ENT Problems", "Gastrointestinal", "Urinary/Prostat", 
+                    "Heart Disease", "High Blood Pressure", "High Cholesterol", "Kidney Problems",
+                    "Liver Problems", "Lung Problems", "Musculoskeletal", "Stroke",
+                    "Seizure", "Psychiatric", "Skin Disease", "Thyroid",
+                    "Sleep Apnea"]
+    },
+    {
+        "section_name": "Current Medications",
+        "labels": ["none", "ADD", "Antidepressant", "Antacid", 
+                    "Blood Pressure", "Diabetic", "NSAID", "Statin",
+                    "Steroid", "Thyroid"]
+    },
+    {
+        "section_name": "Please list all current supplements you are taking and the dosage",
+        "labels": ["Fiber", "MultiVitamin", "Calcium", "Fish Oil", 
+                    "Hair/Skin/Nail", "Hormone", "Iron", "Joint",
+                    "Sleep", "Sport", "Vitamin D", "Weight Loss",
+                    "None"]
+    },
+    {
+        "section_name": "Tobacco",
+        "labels": ["Yes", "No"],
+        "questions": [
+            "Packs/Day"
+        ]
+    },
+    {
+        "section_name": "Alcohol",
+        "labels": ["Yes", "No"],
+        "questions": [
+            "Drinks/Week"
+        ]
+    },
+    {
+        "section_name": "Caffeine",
+        "labels": ["Yes", "No"],
+        "questions": [
+            "Cups/Day"
+        ]
+    },
+    {
+        "section_name": "Exercise",
+        "labels": ["Yes", "No", "# of Children", "Desire More Children", "Recreational Drugs"],
+        "questions": [
+            "Days/Week",
+            "Please mention # of Children",
+            "OCCUPATION",
+            "Allergies"
+        ]
+    },
+    {
+        "section_name": "Reason for visit/Ongoing Medical Problems",
+        "labels": ["Difficulty Sleeping", "Muscle and/or Joint Pain", "Night Sweats", "Vaginal Dryness",
+                    "Mood Swings", "Fatigue", "Hot Flashes", "Decrease Sex Drive",
+                    "Foggy Thinking", "Painful Intercourse", "Difficulty Concentrating", "Anxiety",
+                    "None/ NA"]
+    },
+    {
+        "section_name": "Surgeries/Major Events",
+        "labels": ["Wisdom Teeth", "Hysterectomy", "Joint Surgery", "C-Section",
+                    "Gallbladder", "Breast Biopsy", "Breast Augmentation", "Tonsillectomy", 
+                    "Uterine Biopsy", "Hernia Repair", "Appendectomy", "None/ NA"]
+    },
+    {
+        "section_name": "MENSTRUAL HISTORY",
+        "labels": ["Currently have regular menstrual cycles", "Ablation", "Hysterectomy", "Menopause",
+                    "None/ NA"]
+    },
+    {
+        "section_name": "GENERAL",
+        "labels": ["Abnormal Weight Gain", "Abnormal Weight Loss", "Night Sweats", "Appetite Change",
+                    "Decreased Appetite", "Fatigue"]
+    },
+    {
+        "section_name": "EYES",
+        "labels": ["Blurry Vision", "Double Vision", "Visual Disturbances", "Other",
+                    "None"]
+    },
+    {
+        "section_name": "CARDIOVASCULAR",
+        "labels": ["None", "Chest Pain/Pressure", "Fainting", "Palpitations",
+                    "Dizziness", "Other"]
+    },
+    {
+        "section_name": "RESPIRATORY",
+        "labels": ["Wheezing", "Shortness of Breath", "Coughing", "Other",  
+                    "None"]
+    },
+    {
+        "section_name": "GI",
+        "labels": ["None", "Persistent Nausea", "Abdominal Pain", "Heartburn",
+                    "Vomiting", "Difficulty Swallowing", "Other"]
+    },
+    {
+        "section_name": "GENITOURINARY",
+        "labels": ["None/ NA", "Urinary Frequency", "Night Time Urination", "Pain with Urination",
+                    "Urinary Urgency", "Urinary Hesitancy", "Blood in Urine", "Other"]
+    },
+    {
+        "section_name": "NEUROLOGIC",
+        "labels": ["None/ NA", "Headaches",  "Numbness",  "Weakness",
+                    "Tingling", "Poor Balance", "Decreased Mental Focus", "Foggy Thinking",
+                    "Other"]
+    },
+    {
+        "section_name": "ENT",
+        "labels": ["Nasal Congestion", "Hearing Loss",  "Dizziness",  "Ear Pain",
+                    "Other", "None/ NA"]
+    },
+    {
+        "section_name": "MUSCULOSKELETAL",
+        "labels": ["Other", "Joint Pain",  "Decrease in Strength",  "Decrease in Endurance",
+                    "Decrease in Muscle Size", "Decrease in Performance", "Swelling", "Muscle Pain"]
+    },
+    {
+        "section_name": "SKIN",
+        "labels": ["Other",  "Rashes",  "Acne", "Suspicious Skin Lesions"]
+    },
+    {
+        "section_name": "PSYCHIATRIC",
+        "labels": ["Anxiety",  "Depression", "Insomnia", "Irritability",
+                    "Other"]
+    },
+    {
+        "section_name": "ENDOCRINE",
+        "labels": ["Excessive Thirst",  "Hot/Cold Intolerance", "Other"]
+    },
+    {
+        "section_name": "PREGNANCY HISTORY/PREVENTATIVE CARE",
+        "questions": [
+            "Are you currently, or do you think you might be pregnant?",
+            "Date of last menstrual period?",
+            "# of Pregnancies",
+            "Miscarriages",
+            "Live Births"
+        ]
+    },
+    {
+        "section_name": "Next of Kin",
+        "questions": [
+            "Name:",
+            "Relationship:",
+            "Phone Number:",
+            "PREFERRED PHARMACY & LOCATION:",
+            "Primary reason for visit:",
+            "How did you hear about Balance Hormone Center?"
+        ]
+    },
+    {
+        "section_name": "Female Patient Information",
+        "questions": [
+            "First Name",
+            "Last Name",
+            "Date of Birth",
+            "Home Address:",
+            "City:",
+            "State:",
+            "Zip Code:",
+            "Email:",
+            "Cell Phone:",
+            "Primary Language:",
+            "Marital Status",
+            "Sexual Orientation:",
+            "If Other, Please Elaborate:",
+            "As a convenience to our patients, we offer appointment reminders through phone calls and text messages. Would you like to be set up on automatic text reminders?",
+            "If yes, who is your cell phone provider?"
+        ]
+    },
+    {
+        "section_name": "Sleep",
+        "questions":[
+            "Sleep Quality",
+            "How often do you dream"
+        ]
+    },
+    {
+        "section_name": "OVER THE LAST 2 WEEKS, HOW OFTEN HAVE YOU BEEN BOTHERED BY THE FOLLOWING PROBLEMS?",
+        "questions":[
+            "1. Little interest or pleasure in doing activities.",
+            "2. Feeling down, depressed or hopeless."
+        ]
+    },
+    {
+        "section_name": "PREVENTATIVE CARE",
+        "questions":[
+            "Last Mammogram Abnormal?",
+            "Any history of abnormal mammogram(s)?",
+            "Last Pap Smear Abnormal?",
+            "Any history of abnormal Pap Smear?"
+        ]
+    },
+    {
+        "section_name": "FAMILY HISTORY",
+        "questions": [ 
+            "Father Age",
+            "Medical Conditions",
+            "Mother Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Maternal Grandfather Age",
+            "Medical Conditions",
+            "Maternal Grandmother Age",
+            "Medical Conditions",
+            "Paternal Grandfather Age",
+            "Medical Conditions",
+            "Paternal Grandmother Age",
+            "Medical Conditions"
+        ]
+    }
+]

@@ -1197,7 +1197,45 @@ def run_extractor_from_config(pdf_path,
     if tess_path:
         pytesseract.pytesseract.tesseract_cmd = resolve_path(tess_path, base_dir)
 
-    sections_path = sections or resolve_path(cfg.get("sections"), base_dir)
+    # Determine sections path:
+    # 1) Explicit parameter wins
+    # 2) Otherwise auto-detect gender from first page OCR, preferring female if undecidable
+    sections_path = None
+    if sections:
+        sections_path = resolve_path(sections, base_dir)
+    else:
+        # Attempt gender detection
+        try:
+            from pdf2image import convert_from_path as _convert
+            # Need poppler path early for render; resolve lightweight here
+            tmp_poppler = poppler or resolve_path(cfg.get("poppler"), base_dir)
+            first = _convert(pdf_path, dpi=150, first_page=1, last_page=1, poppler_path=tmp_poppler)[0]
+            import pytesseract as _pt
+            ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+            text = _pt.image_to_string(first, config=ocr_cfg)
+            norm = text.lower()
+            female_hit = "female patient information" in norm
+            male_hit = "male patient information" in norm
+            female_path = resolve_path("female_sections.json", base_dir)
+            male_path = resolve_path("male_sections.json", base_dir)
+            if female_hit and not male_hit:
+                sections_path = female_path
+            elif male_hit and not female_hit:
+                sections_path = male_path
+            elif female_hit and male_hit:
+                f_idx = norm.find("female patient information")
+                m_idx = norm.find("male patient information")
+                sections_path = female_path if f_idx < m_idx else male_path
+            else:
+                # Default fallback: prefer female if exists else male
+                sections_path = female_path if os.path.exists(female_path) else male_path
+                print("[GENDER-DETECT] No gender keyword found; defaulting to " + os.path.basename(sections_path))
+            print(f"[GENDER-DETECT] Selected sections file: {os.path.basename(sections_path)}")
+        except Exception as _gex:
+            print(f"[GENDER-DETECT][WARN] Auto-selection failed ({_gex}); falling back to female/male default")
+            female_path = resolve_path("female_sections.json", base_dir)
+            male_path = resolve_path("male_sections.json", base_dir)
+            sections_path = female_path if os.path.exists(female_path) else male_path
     ticked_path = ticked_template or resolve_path(cfg.get("ticked_template"), base_dir)
     empty_path = empty_template or resolve_path(cfg.get("empty_template"), base_dir)
     poppler_path = poppler or resolve_path(cfg.get("poppler"), base_dir)
@@ -1205,9 +1243,10 @@ def run_extractor_from_config(pdf_path,
     artifacts_dir = artifacts or resolve_path(cfg.get("artifacts"), base_dir) or os.path.join(os.getcwd(), "artifacts")
 
     missing = []
-    if not sections_path: missing.append("sections")
     if not ticked_path: missing.append("ticked_template")
     if not empty_path: missing.append("empty_template")
+    if not sections_path:
+        missing.append("auto-detected sections file (female_sections.json/male_sections.json)")
     if missing:
         raise ValueError(f"Missing required inputs: {', '.join(missing)}")
 
@@ -1227,7 +1266,7 @@ def run_extractor_from_config(pdf_path,
 def main():
     parser = argparse.ArgumentParser(description="PDF Checkbox Extractor with Section-Aware Label Alignment")
     parser.add_argument("--pdf", required=True, help="Path to PDF file")
-    parser.add_argument("--sections", help="Path to sections.json (default from config.json)")
+    parser.add_argument("--sections", help="Manual override path to a sections JSON; if omitted, auto-select female/male")
     parser.add_argument("--output", default="output.json", help="Output JSON file")
     parser.add_argument("--ticked_template", help="Path to ticked checkbox image (default from config.json)")
     parser.add_argument("--empty_template", help="Path to empty checkbox image (default from config.json)")
@@ -1250,17 +1289,51 @@ def main():
     if cfg.get("tesseract"):
         pytesseract.pytesseract.tesseract_cmd = resolve_path(cfg["tesseract"], base_dir)
 
-    sections_path = args.sections or resolve_path(cfg.get("sections"), base_dir)
+    # Resolve template/poppler paths early so gender detection can render first page
     ticked_path = args.ticked_template or resolve_path(cfg.get("ticked_template"), base_dir)
     empty_path = args.empty_template or resolve_path(cfg.get("empty_template"), base_dir)
     poppler_path = args.poppler or resolve_path(cfg.get("poppler"), base_dir)
+
+    # Determine sections path (CLI): explicit --sections overrides; else auto-detect
+    sections_path = None
+    if args.sections:
+        sections_path = resolve_path(args.sections, base_dir)
+    else:
+        try:
+            from pdf2image import convert_from_path as _convert
+            first = _convert(args.pdf, dpi=150, first_page=1, last_page=1, poppler_path=poppler_path)[0]
+            import pytesseract as _pt
+            ocr_cfg = f"--psm {OCR_PSM}" + (f" -l {OCR_LANG}" if OCR_LANG else "")
+            text = _pt.image_to_string(first, config=ocr_cfg)
+            norm = text.lower()
+            female_hit = "female patient information" in norm
+            male_hit = "male patient information" in norm
+            female_path = resolve_path("female_sections.json", base_dir)
+            male_path = resolve_path("male_sections.json", base_dir)
+            if female_hit and not male_hit:
+                sections_path = female_path
+            elif male_hit and not female_hit:
+                sections_path = male_path
+            elif female_hit and male_hit:
+                f_idx = norm.find("female patient information")
+                m_idx = norm.find("male patient information")
+                sections_path = female_path if f_idx < m_idx else male_path
+            else:
+                sections_path = female_path if os.path.exists(female_path) else male_path
+                print("[GENDER-DETECT] No gender keyword found; defaulting to " + os.path.basename(sections_path))
+            print(f"[GENDER-DETECT] Selected sections file: {os.path.basename(sections_path)}")
+        except Exception as _gex:
+            print(f"[GENDER-DETECT][WARN] Auto-selection failed ({_gex}); falling back to female/male default")
+            female_path = resolve_path("female_sections.json", base_dir)
+            male_path = resolve_path("male_sections.json", base_dir)
+            sections_path = female_path if os.path.exists(female_path) else male_path
     threshold = args.threshold if args.threshold is not None else cfg.get("threshold", 0.6)
     artifacts_dir = args.artifacts or resolve_path(cfg.get("artifacts"), base_dir) or os.path.join(os.getcwd(), "artifacts")
 
     # Validate required inputs now that config has been considered
     missing = []
     if not sections_path:
-        missing.append("--sections (or config.sections)")
+        missing.append("auto-detected sections file (female_sections.json/male_sections.json)")
     if not ticked_path:
         missing.append("--ticked_template (or config.ticked_template)")
     if not empty_path:

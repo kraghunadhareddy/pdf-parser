@@ -1,0 +1,197 @@
+[
+    {
+        "section_name": "Please check those which you have or have had",
+        "labels": ["None/ NA", "Arthritis", "Blood Disorder", "Cancer",
+                    "Diabetes", "ENT Problems", "Gastrointestinal", "Urinary/Prostate", 
+                    "Heart Disease", "High Blood Pressure", "High Cholesterol", "Kidney Problems",
+                    "Liver Problems", "Lung Problems", "Musculoskeletal", "Stroke",
+                    "Seizure", "Psychiatric", "Skin Disease", "Thyroid",
+                    "Sleep Apnea"]
+    },
+    {
+        "section_name": "Current Medications",
+        "labels": ["none", "ADD", "Antidepressant", "Antacid", 
+                    "Blood Pressure", "Diabetic", "NSAID", "Statin",
+                    "Steroid", "Thyroid"]
+    },
+    {
+        "section_name": "Please list all current supplements you are taking and the dosage",
+        "labels": ["Fiber", "MultiVitamin", "Calcium", "Fish Oil", 
+                    "Hair/Skin/Nail", "Hormone", "Iron", "Joint",
+                    "Sleep", "Sport", "Vitamin D", "Weight Loss"]
+    },
+    {
+        "section_name": "SOCIAL HISTORY",
+        "labels": ["Tobacco", "Alcohol", "Caffeine", "Exercise", "# of Children", "Desire More Children", "Recreational Drugs"],
+        "questions": ["Packs/Day", "Drinks/Week", "Cups/Day", "Days/Week",
+                    "Please mention # of Children", "OCCUPATION", "Allergies"]
+    },
+    {
+        "section_name": "Reason for visit/Ongoing Medical Problems",
+        "labels": ["Weight Gain", "Decreased Muscle Mass", "Fatigue", "Deprression",
+                    "Erectile Dysfunction", "Weight Loss", "Decreased Libido", "Other"],
+        "questions": ["If Other, Please Elaborate:", "Symptoms Began:", "Months or Years Ago:"]
+    },
+    {
+        "section_name": "Severity of Symptoms",
+        "labels": ["Moderate", "Severe", "Mild"]
+    },
+    {
+        "section_name": "MUSCULOSKELETAL",
+        "questions": ["Decrease in muscle size, strength, or tone?",
+                    "Decrease in endurance or performance?"]
+    },
+    {
+        "section_name": "Fatigue, especially in the afternoon",
+        "labels": ["None", "Mild", "Moderate", "Severe"]
+    },
+    {
+        "section_name": "Decreased mental focus",
+        "labels": ["None", "Mild", "Moderate", "Severe"]
+    },
+    {
+        "section_name": "Morning Erections",
+        "labels": ["None", "Mild", "Moderate", "Severe"]
+    },
+    {
+        "section_name": "Decreased Libido",
+        "labels": ["None", "Mild", "Moderate", "Severe"]
+    },
+    {
+        "section_name": "Erectile Dysfunction",
+        "labels": ["None", "Mild", "Moderate", "Severe"]
+    },
+    {
+        "section_name": "Surgeries/Major Events",
+        "labels": ["Heart", "Abdominal", "Head/Neck", "Bone/Joint",
+                    "Lung", "Pelvic", "Spine"],
+        "questions": ["Past History of Hormone Replacement (testosterone injection, etc.)",
+                    "If YES, previous testosterone levels", "Dates",
+                    "Does", "Results",
+                    "Have you had an annual physical exam done in the last 12 months?"]
+    },
+    {
+        "section_name": "GENERAL",
+        "labels": ["Abnormal Weight Gain", "Abnormal Weight Loss", "Night Sweats", "Appetite Change",
+                    "Decreased Appetite", "Fatigue"]
+    },
+    {
+        "section_name": "EYES",
+        "labels": ["Blurry Vision", "Double Vision", "Visual Disturbances", "Other",
+                    "None"]
+    },
+    {
+        "section_name": "CARDIOVASCULAR",
+        "labels": ["None", "Chest Pain/Pressure", "Fainting", "Palpitations",
+                    "Dizziness", "Other"]
+    },
+    {
+        "section_name": "RESPIRATORY",
+        "labels": ["Wheezing", "Shortness of Breath", "Coughing", "Other",  
+                    "None"]
+    },
+    {
+        "section_name": "GI",
+        "labels": ["None", "Persistent Nausea", "Abdominal Pain", "Heartburn",
+                    "Vomiting", "Difficulty Swallowing", "Other"]
+    },
+    {
+        "section_name": "GENITOURINARY",
+        "labels": ["None/ NA", "Urinary Frequency", "Night Time Urination", "Pain with Urination",
+                    "Urinary Urgency", "Urinary Hesitancy", "Blood in Urine", "Other"]
+    },
+    {
+        "section_name": "NEUROLOGIC",
+        "labels": ["None/ NA", "Headaches",  "Numbness",  "Weakness",
+                    "Tingling", "Poor Balance", "Decreased Mental Focus", "Foggy Thinking",
+                    "Other"]
+    },
+    {
+        "section_name": "ENT",
+        "labels": ["Nasal Congestion", "Hearing Loss",  "Dizziness",  "Ear Pain",
+                    "Other", "None/ NA"]
+    },
+    {
+        "section_name": "SKIN",
+        "labels": ["Other",  "Rashes",  "Acne", "Suspicious Skin Lesions"]
+    },
+    {
+        "section_name": "PSYCHIATRIC",
+        "labels": ["Anxiety",  "Depression", "Insomnia", "Irritability",
+                    "Other"]
+    },
+    {
+        "section_name": "ENDOCRINE",
+        "labels": ["Excessive Thirst",  "Hot/Cold Intolerance", "Other"]
+    },
+    {
+        "section_name": "Next of Kin",
+        "questions": [
+            "Name:",
+            "Relationship:",
+            "Phone Number:",
+            "PREFERRED PHARMACY & LOCATION:",
+            "Primary reason for visit:",
+            "How did you hear about Balance Hormone Center?"
+        ]
+    },
+    {
+        "section_name": "Male Patient Information",
+        "questions": [
+            "First Name",
+            "Last Name",
+            "Date of Birth",
+            "Home Address:",
+            "City:",
+            "State:",
+            "Zip Code:",
+            "Email:",
+            "Cell Phone:",
+            "Primary Language:",
+            "Marital Status",
+            "Sexual Orientation:",
+            "If Other, Please Elaborate:",
+            "As a convenience to our patients, we offer appointment reminders through phone calls and text messages. Would you like to be set up on automatic text reminders?",
+            "If yes, who is your cell phone provider?"
+        ]
+    },
+    {
+        "section_name": "Sleep",
+        "questions":[
+            "Sleep Quality",
+            "How often do you dream"
+        ]
+    },
+    {
+        "section_name": "OVER THE LAST 2 WEEKS, HOW OFTEN HAVE YOU BEEN BOTHERED BY THE FOLLOWING PROBLEMS?",
+        "questions":[
+            "1. Little interest or pleasure in doing activities.",
+            "2. Feeling down, depressed or hopeless."
+        ]
+    },
+    {
+        "section_name": "FAMILY HISTORY",
+        "questions": [ 
+            "Father Age",
+            "Medical Conditions",
+            "Mother Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Brother or Sister Age",
+            "Medical Conditions",
+            "Maternal Grandfather Age",
+            "Medical Conditions",
+            "Maternal Grandmother Age",
+            "Medical Conditions",
+            "Paternal Grandfather Age",
+            "Medical Conditions",
+            "Paternal Grandmother Age",
+            "Medical Conditions"
+        ]
+    }
+]

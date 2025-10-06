@@ -1,5 +1,4 @@
 {
-  "sections": "sections.json",
   "ticked_template": "ticked.png",
   "empty_template": "unticked.png",
   "poppler": "C:\\Users\\raghu\\Downloads\\Release-25.07.0-0\\poppler-25.07.0\\Library\\bin",
